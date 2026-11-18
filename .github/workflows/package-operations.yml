@@ -50,10 +50,12 @@ jobs:
         run: |
           gh release download "el7-runtime-$RUNTIME" -p el7-runtime.tar -p runtime.sha256
           sha256sum -c runtime.sha256
+          sha256sum -c "manifests/runtime-$RUNTIME.sha256"
           tar xf el7-runtime.tar -C kit
           rm el7-runtime.tar
           mv yum-staging kit/
           cp -a ops kit/
+          cp docs/runtime-baseline.md kit/DEPENDENCIES.zh-CN.md
           cp -a docs/evidence/*.json kit/evidence/
           (cd kit && sha256sum -c manifests/runtime-SHA256SUMS >/dev/null)
           git archive "$GITHUB_SHA" -o kit/build-source.tar.gz
