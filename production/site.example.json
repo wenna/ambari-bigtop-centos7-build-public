@@ -1,0 +1,19 @@
+{
+  "nameservice": "prod",
+  "state_dir": "/data/bigtop",
+  "datanode_dirs": ["/disk1/hdfs/data", "/disk2/hdfs/data"],
+  "nm_local_dirs": ["/disk1/yarn/local", "/disk2/yarn/local"],
+  "log_dir": "/var/log/bigtop",
+  "run_dir": "/run/bigtop",
+  "fence_user": "hdfs",
+  "fence_key": "/etc/security/hadoop/fencing/id_rsa",
+  "pg_url": "jdbc:postgresql://pg-writer.prod.example.internal:5432/hive?sslmode=verify-full&sslrootcert=/etc/pki/hive/pg-ca.crt",
+  "pg_user": "hive_catalog",
+  "hms_keystore": "/etc/security/hive/metastore.jceks",
+  "tez_archive": "/apps/tez/tez.tar.gz",
+  "proxy_groups": ["analytics"],
+  "nm_memory_mb": 32768,
+  "nm_vcores": 12,
+  "task_memory_mb": 2048,
+  "accounts": {"hdfs": "hdfs", "yarn": "yarn", "mapred": "mapred", "hive": "hive", "spark": "spark", "zookeeper": "zookeeper"}
+}

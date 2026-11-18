@@ -14,7 +14,7 @@ setup)
     [[ -s $ca && $ca =~ ^/[a-zA-Z0-9_./-]+$ ]]
     private_file "$password_file"
     password=$(cat "$password_file")
-    [[ -n $password && $password != *$'\n'* && ! $password =~ ^[0-9a-fA-F]+$ ]] || {
+    [[ -n $password && $password != *$'\n'* && $password != *$'\r'* && ! $password =~ ^[0-9a-fA-F]+$ ]] || {
         echo "Supply a nonempty single-line password with a non-hexadecimal character" >&2; exit 65;
     }
     state=/var/lib/bigtop-deploy/ambari
@@ -57,6 +57,7 @@ PY
         echo "$identity" > "$state/configured.id"
     fi
     grep -Fxq "server.jdbc.url=$url" "$props"
+    grep -Fxq "server.jdbc.rca.url=$url" "$props"
     if ! ambari-server status >/dev/null 2>&1; then ambari-server start; fi
     ;;
 agent)

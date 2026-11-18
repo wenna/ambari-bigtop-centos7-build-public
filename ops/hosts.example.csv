@@ -1,0 +1,11 @@
+slot,fqdn,rack
+bd01,bd01.prod.example.internal,rack-a
+bd02,bd02.prod.example.internal,rack-b
+bd03,bd03.prod.example.internal,rack-c
+bd04,bd04.prod.example.internal,rack-a
+bd05,bd05.prod.example.internal,rack-b
+bd06,bd06.prod.example.internal,rack-c
+bd07,bd07.prod.example.internal,rack-a
+bd08,bd08.prod.example.internal,rack-b
+bd09,bd09.prod.example.internal,rack-a
+bd10,bd10.prod.example.internal,rack-b

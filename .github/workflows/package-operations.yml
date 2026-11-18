@@ -43,6 +43,10 @@ jobs:
           gh run download "$MANAGEMENT" -n offline-management -D kit/evidence/management
           jq -e '.Hosts.host_state=="HEALTHY"' kit/evidence/management/host.json
           jq -e '.Versions.stack_version=="3.3.0"' kit/evidence/management/stack.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/44340595879" > kit/evidence/management/installer-run.json
+          jq -e '.conclusion=="success" and .path==".github/workflows/test-management-installer.yml"' kit/evidence/management/installer-run.json
+          gh run download 44340595879 -n ten-agent-management -D kit/evidence/management
+          jq -e '(.items|length)==10 and all(.items[]; .Hosts.host_state=="HEALTHY")' kit/evidence/management/ten-hosts.json
           grep -Fx "el7-runtime-$RUNTIME" kit/evidence/cluster/runtime-release.txt
           grep '^HDFS_HA_PASSED ' kit/evidence/cluster/failover.log
           grep '^YARN_HA_PASSED ' kit/evidence/cluster/failover.log
@@ -65,13 +69,18 @@ jobs:
           rm el7-runtime.tar
           mv yum-staging kit/
           cp -a ops kit/
-          cp cluster/provision-node.sh kit/ops/provision-node.sh
+          python3 production/check.py
+          bash production/start-cluster.sh --action plan --inventory ops/hosts.example.csv --site production/site.example.json --snapshot "$RUNNER_TEMP/operator-plan"
+          cp -a production kit/
+          mkdir -p kit/cluster
+          cp cluster/provision-node.sh kit/cluster/
           cp docs/runtime-baseline.md kit/DEPENDENCIES.zh-CN.md
           cp -a docs/evidence/*.json kit/evidence/
           (cd kit && sha256sum -c manifests/runtime-SHA256SUMS >/dev/null)
           git archive "$GITHUB_SHA" -o kit/build-source.tar.gz
           cp kit/ops/README.md kit/INSTALL.zh-CN.md
           (cd kit && find . -type f ! -path ./SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+          (cd kit && sha256sum SHA256SUMS) > kit-manifest.sha256
           mkdir delivery
           tar cf - -C kit . | split -b 950M -d -a 2 - delivery/ambari-bigtop-el7.tar.part-
           cd delivery
@@ -82,4 +91,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "el7-operations-$GITHUB_RUN_ID" --target "$GITHUB_SHA" --draft --title "Ambari + Bigtop | CentOS 7.9 x86_64 运维交付包" --notes-file docs/releases/operations.md delivery/* kit/INSTALL.zh-CN.md kit/manifests/runtime-versions.tsv kit/manifests/application-rpm-requires.txt
+          gh release create "el7-operations-$GITHUB_RUN_ID" --target "$GITHUB_SHA" --draft --title "Ambari + Bigtop | CentOS 7.9 x86_64 运维交付包" --notes-file docs/releases/operations.md delivery/* kit-manifest.sha256 kit/INSTALL.zh-CN.md kit/manifests/runtime-versions.tsv kit/manifests/application-rpm-requires.txt
