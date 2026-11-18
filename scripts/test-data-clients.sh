@@ -9,13 +9,18 @@ yum --disablerepo='*' --enablerepo=c7-os,c7-updates,c7-extras,c7-local -y instal
 export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk
 base=/usr/bigtop/3.3.0
 export HADOOP_HOME="$base/usr/lib/hadoop"
+export HADOOP_COMMON_HOME="$HADOOP_HOME"
+export HADOOP_LIBEXEC_DIR="$HADOOP_HOME/libexec"
 export HADOOP_HDFS_HOME="$base/usr/lib/hadoop-hdfs"
 export HADOOP_MAPRED_HOME="$base/usr/lib/hadoop-mapreduce"
 export HADOOP_YARN_HOME="$base/usr/lib/hadoop-yarn"
 export HADOOP_CONF_DIR=/etc/hadoop/conf
 export SPARK_HOME="$base/usr/lib/spark"
 export HIVE_HOME="$base/usr/lib/hive"
-hadoop=$(rpm -ql hadoop_3_3_0 | awk '/\/bin\/hadoop$/ && !p {print; p=1}')
+export PATH="$HADOOP_HOME/bin:$base/usr/bin:$JAVA_HOME/bin:$PATH"
+set -x
+test -s "$HADOOP_LIBEXEC_DIR/hadoop-layout.sh"
+hadoop="$HADOOP_HOME/bin/hadoop"
 "$hadoop" version
 test -s "$(find "$base" -name 'tez-api-*.jar' -print -quit)"
 spark=$(find "$base" -path '*/bin/spark-submit' -print -quit)
