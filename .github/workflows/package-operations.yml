@@ -86,7 +86,7 @@ jobs:
           cd delivery
           sha256sum *.part-* > SHA256SUMS
           sha256sum -c SHA256SUMS
-          cat *.part-* | tar tf - >/dev/null
+          cat *.part-* | python3 ../scripts/check-operations-stream.py
       - name: Create draft with packages and operator guide
         env:
           GH_TOKEN: ${{ github.token }}
