@@ -29,6 +29,14 @@ fi
 sha256sum "$selector_patch" > artifacts/patch-SHA256SUMS
 git -C upstream/bigtop diff > artifacts/applied.patch
 mkdir -p .build-cache/m2
+if [[ "$build_extra" == hive ]]; then
+  parent=.build-cache/m2/org/apache/apache/18
+  mkdir -p "$parent"
+  curl -fsSL --retry 5 --retry-all-errors --max-time 120 \
+    https://repo.maven.apache.org/maven2/org/apache/apache/18/apache-18.pom -o "$parent/apache-18.pom"
+  echo "7831307285fd475bbc36b20ae38e7882f11c3153b1d5930f852d44eda8f33c17  $parent/apache-18.pom" | sha256sum -c -
+  printf 'apache-18.pom>central=\n' > "$parent/_remote.repositories"
+fi
 if [[ "$build_extra" == hadoop ]]; then
   printf 'Stage: prefetch verified dependency after recorded Maven connection reset\n'
   bash scripts/preseed-hadoop-dependency.sh
