@@ -1,0 +1,31 @@
+name: Use the operator management installer with ten agents and TLS PostgreSQL
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  operator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: |
+          bash cluster/archive-input.sh
+          gh release download el7-runtime-44273252473 -p el7-runtime.tar
+          sha256sum -c manifests/runtime-44273252473.sha256
+          tar xf el7-runtime.tar
+          rm el7-runtime.tar
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: bash cluster/check-management-installer.sh
+      - if: failure()
+        run: |
+          docker logs --tail 12 mgmt-db || true
+          docker exec bd09.lab.test tail -n 40 /var/log/ambari-server/ambari-server.out || true
+          docker exec bd01.lab.test tail -n 20 /var/log/ambari-agent/ambari-agent.log || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ten-agent-management
+          path: management-evidence/ten-hosts.json
+          retention-days: 3
