@@ -55,7 +55,22 @@ if host in workers:
 configuration("hdfs-site.xml", hdfs)
 libdirs = [os.environ[name] for name in (
     "HADOOP_COMMON_HOME", "HADOOP_HDFS_HOME", "HADOOP_YARN_HOME", "HADOOP_MAPRED_HOME")]
-classpath = [conf] + [directory + suffix for directory in libdirs for suffix in ("/*", "/lib/*")]
+# The RPMs install loose webapps and configuration resources alongside the jars.
+# Java's directory/* entries include jars only.
+classpath = [conf] + [directory + suffix for directory in libdirs
+                      for suffix in ("", "/lib/*", "/*")]
+with open(os.path.join(conf, "container-log4j.properties"), "w") as stream:
+    stream.write("""log4j.rootLogger=INFO,syslog,stderr
+log4j.appender.syslog=org.apache.log4j.FileAppender
+log4j.appender.syslog.File=${yarn.app.container.log.dir}/syslog
+log4j.appender.syslog.layout=org.apache.log4j.PatternLayout
+log4j.appender.syslog.layout.ConversionPattern=%d %-5p %c - %m%n
+log4j.appender.stderr=org.apache.log4j.ConsoleAppender
+log4j.appender.stderr.Target=System.err
+log4j.appender.stderr.Threshold=WARN
+log4j.appender.stderr.layout=org.apache.log4j.PatternLayout
+log4j.appender.stderr.layout.ConversionPattern=%d %-5p %c - %m%n
+""")
 yarn = {
     "yarn.resourcemanager.ha.enabled": "true",
     "yarn.resourcemanager.cluster-id": "cluster",
@@ -68,6 +83,7 @@ yarn = {
     "yarn.nodemanager.aux-services": "mapreduce_shuffle",
     "yarn.nodemanager.local-dirs": "/var/lib/ha/nm/local",
     "yarn.nodemanager.log-dirs": "/var/lib/ha/nm/logs",
+    "yarn.nodemanager.delete.debug-delay-sec": "600",
     "yarn.nodemanager.resource.memory-mb": "3072",
     "yarn.nodemanager.resource.cpu-vcores": "3",
     "yarn.scheduler.minimum-allocation-mb": "128",

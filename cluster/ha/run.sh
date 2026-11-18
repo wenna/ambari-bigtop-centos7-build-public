@@ -129,7 +129,23 @@ old=$(active_id rm)
 new=$((3 - old))
 app=$(node master1 submit-rm-job | grep -Ex 'application_[0-9]+_[0-9]+')
 [[ $app =~ ^application_[0-9]+_[0-9]+$ ]]
-wait_for "a live map container for $app" client hdfs dfs -test -s /ha-check/rm-ready
+collect_app_logs() {
+  local host
+  for host in "${workers[@]}"; do
+    node "$host" exec python3 /project/cluster/ha/rm_diagnostics.py "$app" || true
+  done
+}
+trap collect_app_logs EXIT
+deadline=$((SECONDS + 180))
+until client hdfs dfs -test -s /ha-check/rm-ready; do
+  status=$(client timeout 20 yarn application -status "$app")
+  if grep -Eq '^[[:space:]]*State[[:space:]]*:[[:space:]]*(FINISHED|KILLED|FAILED)' <<<"$status"; then
+    echo "Application $app terminated before the mapper published its container ID" >&2
+    exit 1
+  fi
+  (( SECONDS < deadline )) || { echo "Timed out waiting for mapper $app" >&2; exit 1; }
+  sleep 2
+done
 container=$(client hdfs dfs -cat /ha-check/rm-ready)
 [[ $container =~ ^container_[a-zA-Z0-9_]+$ ]]
 node "master$old" rm-job-state "$app" RUNNING
