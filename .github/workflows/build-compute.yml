@@ -1,0 +1,55 @@
+name: Build a Bigtop compute component
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        type: choice
+        required: true
+        options: [tez, hive, spark]
+      free_quota_confirmed:
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: compute-${{ inputs.component }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: ${{ inputs.free_quota_confirmed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 135
+    env:
+      BUILD_EXTRA: ${{ inputs.component }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: apache/bigtop
+          ref: d44a5845eeffe6bab7037a3ca816cf3c9df44029
+          path: upstream/bigtop
+          persist-credentials: false
+      - run: bash scripts/build-foundation.sh
+        timeout-minutes: 110
+      - name: Preserve packages privately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "$BUILD_EXTRA" in hive|tez|spark) ;; *) exit 64;; esac
+          mapfile -d '' -t files < <(find upstream/bigtop/output -name "${BUILD_EXTRA}_3_3_0*.rpm" -type f -print0)
+          grep -E "^(${BUILD_EXTRA}_3_3_0) " artifacts/rpm-metadata.txt | grep -E ' (x86_64|noarch)$'
+          test "${#files[@]}" -gt 1
+          test -z "$(for p in "${files[@]}"; do basename "$p"; done | sort | uniq -d)"
+          for p in "${files[@]}"; do (cd "$(dirname "$p")" && sha256sum "$(basename "$p")"); done > artifacts/SHA256SUMS
+          gh release create "c7-${BUILD_EXTRA}-$GITHUB_RUN_ID" --draft --prerelease --target "$GITHUB_SHA" --title "$BUILD_EXTRA / Bigtop 3.3.0 EL7" --notes "Build output. Service integration pending." "${files[@]}" artifacts/SHA256SUMS artifacts/rpm-metadata.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ always() }}
+        with:
+          name: compute-records-${{ github.run_id }}
+          path: |
+            artifacts/build.log
+            artifacts/rpm-metadata.txt
+          retention-days: 1

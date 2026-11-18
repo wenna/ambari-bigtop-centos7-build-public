@@ -1,0 +1,108 @@
+--- a/bigtop-packages/src/common/bigtop-select/distro-select
++++ b/bigtop-packages/src/common/bigtop-select/distro-select
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python2
++#!/usr/bin/env python3
+ #
+ # Licensed to the Apache Software Foundation (ASF) under one
+ # or more contributor license agreements.  See the NOTICE file
+@@ -77,7 +77,7 @@
+ 
+ # Define the aliases and the list of leaves they correspond to
+ aliases = {
+-  "all": leaves.keys(),
++  "all": list(leaves.keys()),
+   "client" : ["hadoop-client",
+               "hbase-client",
+               "tez-client",
+@@ -142,7 +142,7 @@
+ # Given a package or alias name, get the full list of packages
+ def getPackages( name ):
+   if name == None:
+-    return leaves.keys()
++    return list(leaves.keys())
+   if name in aliases:
+     return aliases[name]
+   if name in leaves:
+@@ -169,12 +169,12 @@
+ 
+ # Print the avaialable package names
+ def printPackages():
+-  packages = leaves.keys()
++  packages = list(leaves.keys())
+   packages.sort()
+   print("Packages:")
+   for pkg in packages:
+      print(" " + pkg)
+-  groups = aliases.keys()
++  groups = list(aliases.keys())
+   groups.sort()
+   print("Aliases:")
+   for pkg in groups:
+@@ -182,7 +182,7 @@
+ 
+ #Print whether given package is supported or not
+ def isSupportedPacakge(package):
+-    packages = leaves.keys()
++    packages = list(leaves.keys())
+     if package in packages:
+       print("%s" % package)
+     else:
+@@ -200,7 +200,7 @@
+         print("ERROR: Unexpected file/directory found in %s: %s" % (root, f))
+         sys.exit(1)
+ 
+-  keys = result.keys()
++  keys = list(result.keys())
+   keys.sort()
+   for k in keys:
+      print(result[k])
+@@ -222,7 +222,7 @@
+     sys.exit(1)
+ 
+   if not os.path.isdir(current):
+-    os.mkdir(current, 0755)
++    os.mkdir(current, 0o755)
+ 
+   packages.sort()
+   for pkg in packages:
+--- a/bigtop-packages/src/common/bigtop-select/conf-select
++++ b/bigtop-packages/src/common/bigtop-select/conf-select
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python2
++#!/usr/bin/env python3
+ #
+ # Licensed to the Apache Software Foundation (ASF) under one
+ # or more contributor license agreements.  See the NOTICE file
+--- a/bigtop-packages/src/common/bigtop-select/install_select.sh
++++ b/bigtop-packages/src/common/bigtop-select/install_select.sh
+@@ -87,7 +87,7 @@
+ install -p -m 755 ${DISTRO_DIR}/${STACK_SELECTOR} $PREFIX${LIB_DIR}/
+ install -p -m 755 ${DISTRO_DIR}/${CONF_SELECTOR} $PREFIX${LIB_DIR}/
+ cat > $PREFIX${LIB_DIR}/params.py <<EOF
+-#!/usr/bin/env python2
++#!/usr/bin/env python3
+ #
+ # Licensed to the Apache Software Foundation (ASF) under one
+ # or more contributor license agreements.  See the NOTICE file
+--- a/bigtop-packages/src/rpm/bigtop-select/SPECS/bigtop-select.spec
++++ b/bigtop-packages/src/rpm/bigtop-select/SPECS/bigtop-select.spec
+@@ -35,6 +35,7 @@
+ Source2:    conf-select
+ Source3:    distro-select
+ Requires:   bash
++Requires:   python3
+ 
+ # "which" command is needed for a lot of projects.
+ # It is part of the package "util-linux" on suse and "which" everywhere else
+--- a/bigtop.bom
++++ b/bigtop.bom
+@@ -274,7 +274,7 @@
+     'bigtop-select' {
+       name    = "bigtop-select"
+       relNotes = "Service package for Apache Bigtop information to use Ambari"
+-      version { base = bigtop.version; pkg = base-"-SNAPSHOT"; release = 1 }
++      version { base = bigtop.version; pkg = base-"-SNAPSHOT"; release = '2.compat1' }
+       tarball { destination = "bigtop-select-${version.base}.tar.gz" }
+       packaging = 'rpm'
+     }

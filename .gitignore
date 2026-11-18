@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+reports/
+artifacts/
+.env
+*.pem
+*.key
+upstream/
+deliverables/
+.build-cache/
+runtimes/

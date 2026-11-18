@@ -1,0 +1,11 @@
+--- a/ambari-agent/src/main/python/ambari_agent/main.py
++++ b/ambari-agent/src/main/python/ambari_agent/main.py
+@@ -325,7 +325,7 @@ def reset_agent(options):
+     if new_host is not None and server_host != new_host:
+       print("Updating server host from " + server_host + " to " + new_host)
+       agent_config.set("server", "hostname", new_host)
+-      with open(configFile, "wb") as new_agent_config:
++      with open(configFile, "w") as new_agent_config:
+         agent_config.write(new_agent_config)
+ 
+     # clear agent certs

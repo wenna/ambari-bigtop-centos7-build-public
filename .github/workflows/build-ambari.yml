@@ -1,0 +1,64 @@
+name: Build Ambari 3.0.0 CentOS 7 RPMs
+on:
+  workflow_dispatch:
+    inputs:
+      free_quota_confirmed:
+        description: Free quota and no paid overage have been confirmed
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: centos7-ambari-build
+  cancel-in-progress: false
+jobs:
+  build:
+    if: ${{ inputs.free_quota_confirmed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 145
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: apache/ambari
+          ref: 15feafb7dfa2f4964a01edac47c0956ab29ad99e
+          path: upstream/ambari
+          persist-credentials: false
+      - name: Compile with checked JDK 17 in CentOS 7
+        timeout-minutes: 110
+        run: bash scripts/build-ambari.sh
+      - name: Verify newly built binaries on a clean node
+        id: install
+        run: |
+          mkdir artifacts/install
+          find upstream/ambari/{ambari-agent,ambari-server}/target/rpm -type f -name '*.x86_64.rpm' -exec ln {} artifacts/install/ \;
+          set -o pipefail
+          docker run --rm -v "$PWD/artifacts/install:/rpms:ro" -v "$PWD/scripts/verify-ambari-install.sh:/verify.sh:ro" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash /verify.sh |& tee artifacts/clean-install.log
+      - name: Save binaries before creating a release
+        if: ${{ always() && steps.install.outcome != 'skipped' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ambari-rpms-${{ github.run_id }}
+          path: artifacts/install/*.rpm
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Save packages and source in a release draft
+        if: ${{ always() && steps.install.outcome != 'skipped' && !cancelled() }}
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/save-ambari-draft.sh
+      - name: Preserve small build records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ambari-build-records-${{ github.run_id }}
+          path: |
+            artifacts/*.log
+            artifacts/*.txt
+            artifacts/*SHA256SUMS
+          retention-days: 1
