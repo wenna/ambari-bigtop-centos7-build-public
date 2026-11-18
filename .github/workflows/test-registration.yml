@@ -5,9 +5,9 @@ on:
       build_run:
         type: string
         required: true
-        description: Successful public Ambari build run number
+        description: Public Ambari build run with a matching approved checksum manifest
 permissions:
-  contents: read
+  contents: write # Required for downloading draft assets.
   actions: read
 jobs:
   test:
@@ -23,8 +23,9 @@ jobs:
           BUILD_RUN: ${{ inputs.build_run }}
         run: |
           [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" | jq -e '.path == ".github/workflows/build-ambari.yml" and .head_branch == "main" and .event == "workflow_dispatch" and .conclusion == "success"'
-          gh run download "$BUILD_RUN" -n "ambari-rpms-$BUILD_RUN" -D artifacts/ambari
+          test -f "manifests/ambari-$BUILD_RUN.sha256"
+          gh release download "ambari-3.0.0-c7-run-$BUILD_RUN" -p '*.rpm' -D artifacts/ambari
+          (cd artifacts/ambari && sha256sum -c "../../manifests/ambari-$BUILD_RUN.sha256")
           test -f artifacts/ambari/ambari-server-3.0.0.0-2.compat2.el7.x86_64.rpm
           test -f artifacts/ambari/ambari-agent-3.0.0.0-2.compat2.el7.x86_64.rpm
       - run: bash scripts/verify-ambari-registration.sh

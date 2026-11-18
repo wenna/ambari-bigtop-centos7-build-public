@@ -34,7 +34,9 @@ jobs:
         id: install
         run: |
           mkdir artifacts/install
-          find upstream/ambari/{ambari-agent,ambari-server}/target/rpm -type f -name '*.x86_64.rpm' -exec ln {} artifacts/install/ \;
+          find upstream/ambari/{ambari-agent,ambari-server}/target/rpm -type f -name '*.x86_64.rpm' -exec cp -t artifacts/install/ -- {} +
+          test -s artifacts/install/ambari-agent-3.0.0.0-2.compat2.el7.x86_64.rpm
+          test -s artifacts/install/ambari-server-3.0.0.0-2.compat2.el7.x86_64.rpm
           set -o pipefail
           docker run --rm -v "$PWD/artifacts/install:/rpms:ro" -v "$PWD/scripts/verify-ambari-install.sh:/verify.sh:ro" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash /verify.sh |& tee artifacts/clean-install.log
       - name: Save binaries before creating a release
