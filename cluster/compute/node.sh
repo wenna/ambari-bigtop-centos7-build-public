@@ -103,11 +103,9 @@ case "$1" in
     grep -Fvx "tez.lib.uris=$TEZ_ARCHIVE_URI" "$work/hive-stdout" >"$evidence/hive-result.log"
     LC_ALL=C sort "$evidence/hive-result.log" >"$work/hive-sorted"
     diff -u <(printf 'alpha\t5\nbeta\t7\n') "$work/hive-sorted"
-    python3 /project/cluster/compute/tez-history.py "$history_dir" "$query_name" |
-      tee "$evidence/tez-dag-status.log"
-    read -r dag_id tez_id _ <"$evidence/tez-dag-status.log"
-    check_application "$tez_id" TEZ
-    echo "HIVE_TEZ_PASSED $tez_id $dag_id"
+    ;;
+  tez-status)
+    check_application "$2" TEZ
     ;;
   spark)
     unset HADOOP_CLASSPATH

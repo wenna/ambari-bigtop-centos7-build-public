@@ -24,6 +24,14 @@ hive_workload() {
   node 45s stop
   start_metastore
   node 900s tez "$token"
+  for worker in worker1 worker2 worker3; do
+    docker exec "$worker" python3 /project/cluster/compute/tez-history.py "ci_group_readings_$token"
+  done > evidence/tez-matches.log
+  [[ $(wc -l < evidence/tez-matches.log) == 1 ]]
+  docker exec -i master1 tee /evidence/compute/tez-dag-status.log < evidence/tez-matches.log
+  read -r dag_id tez_id _ < evidence/tez-matches.log
+  node 200s tez-status "$tez_id"
+  echo "HIVE_TEZ_PASSED $tez_id $dag_id"
   table_count=$(sql "SELECT count(*) FROM \"TBLS\" t JOIN \"DBS\" d ON d.\"DB_ID\" = t.\"DB_ID\" WHERE d.\"NAME\" = 'ci_$token' AND t.\"TBL_NAME\" = 'readings'")
   [[ $table_count == 1 ]]
   printf 'PostgreSQL metastore has %s matching table after restart (ci_%s.readings)\n' "$table_count" "$token" |
