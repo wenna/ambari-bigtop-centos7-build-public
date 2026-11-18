@@ -127,6 +127,13 @@ echo "HDFS_HA_PASSED nn$old -> nn$new; old writer fenced and both files matched"
 
 old=$(active_id rm)
 new=$((3 - old))
+app=$(node master1 submit-rm-job | grep -Ex 'application_[0-9]+_[0-9]+')
+[[ $app =~ ^application_[0-9]+_[0-9]+$ ]]
+wait_for "a live map container for $app" client hdfs dfs -test -s /ha-check/rm-ready
+container=$(client hdfs dfs -cat /ha-check/rm-ready)
+[[ $container =~ ^container_[a-zA-Z0-9_]+$ ]]
+node "master$old" rm-job-state "$app" RUNNING
+echo "RM_FAILOVER_APPLICATION_RUNNING application=$app container=$container active=rm$old"
 rm_pid=$(node "master$old" pid resourcemanager)
 echo "Killing active rm$old PID $rm_pid"
 docker exec "master$old" kill -KILL "$rm_pid"
@@ -135,6 +142,11 @@ wait_for "automatic rm$new promotion" is_state rm "$new" active
 start "master$old" resourcemanager
 wait_for "former ResourceManager rejoins standby" is_state rm "$old" standby
 [[ $(active_id rm) == "$new" ]]
+wait_for "$app to re-register with rm$new" node "master$new" rm-job-state "$app" RUNNING
+client hdfs dfs -touchz /ha-check/rm-release
+wait_for "$app to finish on rm$new" node "master$new" rm-job-state "$app" FINISHED
+[[ $(client hdfs dfs -cat /ha-check/rm-output/part-m-00000) == "$container" ]]
+echo "YARN_WORK_PRESERVING_FAILOVER_PASSED application=$app container=$container old=rm$old new=rm$new final=SUCCEEDED"
 wait_for "all workers after failover" registered
 client hdfs dfsadmin -report -live
 client yarn node -list -states RUNNING

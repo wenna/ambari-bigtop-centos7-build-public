@@ -6,7 +6,11 @@ evidence=/evidence/compute
 mkdir -p "$evidence"
 hive="$HIVE_HOME/bin/hive"
 export HIVE_CONF_DIR="$work/client"
-export HADOOP_CLASSPATH="$HIVE_CONF_DIR:$TEZ_HOME/*:$TEZ_HOME/lib/*:${HADOOP_CLASSPATH:-}"
+# Hive's launcher puts TEZ_CONF_DIR before HIVE_CONF_DIR on its JVM classpath.
+# Keep this directory separate so metastore JVMs still load the server hive-site.xml.
+export TEZ_CONF_DIR="$work/tez"
+export TEZ_ARCHIVE_URI=hdfs://cluster/ci-compute/lib/tez.tar.gz
+export HADOOP_CLASSPATH="$TEZ_CONF_DIR:$HIVE_CONF_DIR:$TEZ_HOME/*:$TEZ_HOME/lib/*:${HADOOP_CLASSPATH:-}"
 export HADOOP_CLIENT_OPTS="${HADOOP_CLIENT_OPTS:-} -Dhive.log.dir=$evidence"
 
 check_application() {
@@ -34,7 +38,7 @@ tez_apps() {
 case "$1" in
   configure)
     umask 077
-    mkdir -p "$work"/{server,client,spark,classes}
+    mkdir -p "$work"/{server,client,tez}
     python3 /project/cluster/compute/configure.py
     umask 022
     export HIVE_CONF_DIR="$work/server"
@@ -48,11 +52,15 @@ case "$1" in
     fi
     "$HIVE_HOME/bin/schematool" -dbType postgres -info >"$evidence/schema-info.log" 2>&1
     test -s "$TEZ_HOME/lib/tez.tar.gz"
+    tar -tzf "$TEZ_HOME/lib/tez.tar.gz" >"$work/archive-files"
+    grep -Eq '(^|/)tez-dag-[^/]+\.jar$' "$work/archive-files"
+    grep -Eq '(^|/)tez-api-[^/]+\.jar$' "$work/archive-files"
     hdfs dfs -mkdir -p /ci-compute/lib /user/hive/warehouse /tmp
     hdfs dfs -chmod 1777 /tmp
-    hdfs dfs -put -f "$TEZ_HOME/lib/tez.tar.gz" /ci-compute/lib/tez.tar.gz
+    hdfs dfs -put -f "$TEZ_HOME/lib/tez.tar.gz" "$TEZ_ARCHIVE_URI"
     hdfs dfs -chmod 755 /ci-compute /ci-compute/lib
-    hdfs dfs -chmod 644 /ci-compute/lib/tez.tar.gz
+    hdfs dfs -chmod 644 "$TEZ_ARCHIVE_URI"
+    [[ $(hdfs dfs -stat '%b' "$TEZ_ARCHIVE_URI") == "$(stat -c %s "$TEZ_HOME/lib/tez.tar.gz")" ]]
     ;;
   metastore)
     export HIVE_CONF_DIR="$work/server"
@@ -88,8 +96,11 @@ case "$1" in
     ;;
   tez)
     tez_apps >"$work/tez-before"
-    "$hive" -S -e "SELECT label, sum(amount) FROM ci_$2.readings GROUP BY label;" \
-      >"$evidence/hive-result.log" 2>"$evidence/hive-query.log"
+    "$hive" -S --hiveconf "tez.lib.uris=$TEZ_ARCHIVE_URI" \
+      -e "SET tez.lib.uris; SELECT label, sum(amount) FROM ci_$2.readings GROUP BY label;" \
+      >"$work/hive-stdout" 2>"$evidence/hive-query.log"
+    grep -Fx "tez.lib.uris=$TEZ_ARCHIVE_URI" "$work/hive-stdout"
+    grep -Fvx "tez.lib.uris=$TEZ_ARCHIVE_URI" "$work/hive-stdout" >"$evidence/hive-result.log"
     LC_ALL=C sort "$evidence/hive-result.log" >"$work/hive-sorted"
     diff -u <(printf 'alpha\t5\nbeta\t7\n') "$work/hive-sorted"
     tez_apps >"$work/tez-after"
@@ -101,22 +112,66 @@ case "$1" in
   spark)
     unset HADOOP_CLASSPATH
     export SPARK_CONF_DIR="$work/spark"
+    mkdir -p "$work"/{spark,classes}
     export SPARK_DIST_CLASSPATH
     SPARK_DIST_CLASSPATH=$(hadoop classpath --glob)
     javac -cp "$SPARK_HOME/jars/*:$SPARK_DIST_CLASSPATH" -d "$work/classes" /project/cluster/compute/ComputeCheck.java
     jar cf "$work/compute.jar" -C "$work/classes" .
     path="hdfs://cluster/ci-compute/$2"
+    hdfs dfs -mkdir -p "$path/spark-input"
+    printf 'alpha,2\nbeta,7\nalpha,3\n' | hdfs dfs -put - "$path/spark-input/readings.csv"
     "$SPARK_HOME/bin/spark-submit" --master yarn --deploy-mode cluster --class ComputeCheck \
       --name "ci-spark-$2" --driver-memory 512m --executor-memory 512m --executor-cores 1 \
       --num-executors 1 --conf spark.yarn.populateHadoopClasspath=true \
       --conf spark.yarn.submit.waitAppCompletion=true --conf spark.dynamicAllocation.enabled=false \
-      "$work/compute.jar" "$path/input" "$path/spark-output" >"$evidence/spark-submit.log" 2>&1
+      "$work/compute.jar" "$path/spark-input" "$path/spark-output" >"$evidence/spark-submit.log" 2>&1
     hdfs dfs -test -e "$path/spark-output/_SUCCESS"
     hdfs dfs -cat "$path/spark-output/part-*" | LC_ALL=C sort >"$evidence/spark-result.tsv"
     spark_id=$(cut -f1 "$evidence/spark-result.tsv" | uniq)
     check_application "$spark_id" SPARK
     diff -u <(printf '%s\talpha\t5\n%s\tbeta\t7\n' "$spark_id" "$spark_id") "$evidence/spark-result.tsv"
     echo "SPARK_YARN_PASSED $spark_id"
+    ;;
+  diagnose)
+    type=$2
+    mkdir -p "$work"
+    report="$evidence/$type-diagnostic.log"
+    exec >"$report" 2>&1
+    if [[ $type == TEZ ]]; then
+      logs=("$evidence/hive-query.log" "$work/hive-stdout" "$evidence/prepare.log")
+    else
+      logs=("$evidence/spark-submit.log")
+    fi
+    for log in "${logs[@]}"; do
+      if [[ -f $log ]]; then
+        echo "=== $log"
+        grep -Ei 'caused by:|exception|error|fail|diagnostics' "$log" | tail -n 60 || true
+        tail -n 20 "$log"
+      fi
+    done
+    timeout 20s yarn application -list -appTypes "$type" -appStates ALL >"$work/$type-apps"
+    cat "$work/$type-apps"
+    # The isolated cluster runs one acceptance workload for each application type.
+    awk '$1 ~ /^application_[0-9]+_[0-9]+$/ {print $1}' "$work/$type-apps" |
+      sort -rV | head -n 3 >"$work/$type-ids"
+    while read -r id; do
+      timeout 20s yarn application -status "$id" || true
+      timeout 30s yarn logs -applicationId "$id" -size -8192 2>&1 | tail -c 65536 || true
+    done <"$work/$type-ids"
+    ;;
+  worker-logs)
+    type=$2
+    shopt -s nullglob
+    report="$evidence/$(hostname -s)-$type-diagnostic.log"
+    exec >"$report" 2>&1
+    while read -r id; do
+      [[ $id =~ ^application_[0-9]+_[0-9]+$ ]] || continue
+      for log in /var/lib/ha/nm/logs/"$id"/container_*/{prelaunch.err,stderr,stdout,syslog}; do
+        [[ -s $log ]] || continue
+        echo "=== $log"
+        tail -c 8192 "$log"
+      done
+    done
     ;;
   *) exit 64 ;;
 esac

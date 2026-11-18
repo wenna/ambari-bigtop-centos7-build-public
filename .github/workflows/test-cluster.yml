@@ -11,6 +11,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 95
     env:
       CENTOS: centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4
@@ -45,6 +48,7 @@ jobs:
         run: |
           grep '^HDFS_HA_PASSED ' evidence/failover.log
           grep '^YARN_HA_PASSED ' evidence/failover.log
+          grep '^YARN_WORK_PRESERVING_FAILOVER_PASSED ' evidence/failover.log
           grep '^HIVE_TEZ_PASSED ' evidence/compute-run.log
           grep '^SPARK_YARN_PASSED ' evidence/compute-run.log
       - name: Publish bounded diagnostics in workflow log
@@ -64,6 +68,7 @@ jobs:
             evidence/runtime-release.txt
             evidence/compute-run.log
             evidence/compute/*-status.log
+            evidence/compute/*-diagnostic.log
             evidence/compute/*-result.*
             evidence/compute/catalog-check.log
           retention-days: 3

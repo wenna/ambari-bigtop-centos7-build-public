@@ -36,8 +36,8 @@ client.update({
     "hive.tez.java.opts": "-Xmx512m",
 })
 write_site(base + "/client/hive-site.xml", client)
-write_site(base + "/client/tez-site.xml", {
-    "tez.lib.uris": "hdfs://cluster/ci-compute/lib/tez.tar.gz",
+write_site(os.path.join(os.environ["TEZ_CONF_DIR"], "tez-site.xml"), {
+    "tez.lib.uris": os.environ["TEZ_ARCHIVE_URI"],
     "tez.use.cluster.hadoop-libs": "false",
     "tez.local.mode": "false",
     "tez.am.resource.memory.mb": "768",

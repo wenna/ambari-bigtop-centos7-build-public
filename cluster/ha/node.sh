@@ -55,6 +55,24 @@ PY
     ;;
   port)
     timeout 2 bash -c 'exec 3<>/dev/tcp/"$1"/"$2"' _ "$1" "$2" ;;
+  submit-rm-job)
+    mkdir -p /run/ha/classes
+    javac -cp "$(hadoop classpath --glob):$HADOOP_MAPRED_HOME/*" -d /run/ha/classes /project/cluster/ha/RmFailoverJob.java
+    jar cf /run/ha/rm-job.jar -C /run/ha/classes .
+    printf 'wait for promotion\n' | hdfs dfs -put - /ha-check/rm-input
+    hadoop jar /run/ha/rm-job.jar RmFailoverJob
+    ;;
+  rm-job-state)
+    id=$1
+    report="$HADOOP_LOG_DIR/$id-$2.log"
+    timeout 20 yarn application -status "$id" >"$report" || exit 1
+    grep -Eq "^[[:space:]]*Application-Id[[:space:]]*:[[:space:]]*$id[[:space:]]*$" "$report"
+    grep -Eq "^[[:space:]]*State[[:space:]]*:[[:space:]]*$2[[:space:]]*$" "$report"
+    if [[ $2 == FINISHED ]]; then
+      grep -Eq '^[[:space:]]*Final-State[[:space:]]*:[[:space:]]*SUCCEEDED[[:space:]]*$' "$report"
+    fi
+    cat "$report"
+    ;;
   exec) exec "$@" ;;
   *) exit 64 ;;
 esac

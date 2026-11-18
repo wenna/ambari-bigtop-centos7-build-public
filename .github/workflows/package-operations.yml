@@ -38,6 +38,7 @@ jobs:
           grep -Fx "el7-runtime-$RUNTIME" kit/evidence/cluster/runtime-release.txt
           grep '^HDFS_HA_PASSED ' kit/evidence/cluster/failover.log
           grep '^YARN_HA_PASSED ' kit/evidence/cluster/failover.log
+          grep '^YARN_WORK_PRESERVING_FAILOVER_PASSED ' kit/evidence/cluster/failover.log
           grep '^HIVE_TEZ_PASSED ' kit/evidence/cluster/compute-run.log
           grep '^SPARK_YARN_PASSED ' kit/evidence/cluster/compute-run.log
       - run: bash cluster/archive-input.sh
