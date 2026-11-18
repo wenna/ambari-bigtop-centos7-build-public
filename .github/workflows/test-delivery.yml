@@ -1,0 +1,23 @@
+name: Install the delivered yum archive on CentOS 7
+on: workflow_dispatch
+permissions:
+  contents: write # Required for authenticated download from draft release.
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Check archive and package digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download el7-yum-44247482610 -p el7-x86_64-yum.tar
+          echo 'd69a4b61d3ff26971d9705bbfe6d648093496872361bf6f6a7bc047e2e2c91db  el7-x86_64-yum.tar' | sha256sum -c -
+          tar xf el7-x86_64-yum.tar
+          (cd yum-staging && sha256sum -c SHA256SUMS)
+      - name: Install and exercise clients
+        run: |
+          docker run --rm -v "$PWD/yum-staging:/repo:ro" -v "$PWD/scripts/test-data-clients.sh:/check.sh:ro" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash /check.sh

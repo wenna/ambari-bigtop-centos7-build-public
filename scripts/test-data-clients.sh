@@ -5,7 +5,7 @@ for area in os updates extras; do
 done
 # Local build inputs were SHA-256 checked before metadata generation.
 printf '[c7-local]\nname=Verified local build\nbaseurl=file:///repo\ngpgcheck=0\n' > /etc/yum.repos.d/c7-local.repo
-yum --disablerepo='*' --enablerepo='c7-*' -y install java-1.8.0-openjdk-devel hadoop_3_3_0-client hive_3_3_0 tez_3_3_0 spark_3_3_0-core
+yum --disablerepo='*' --enablerepo=c7-os,c7-updates,c7-extras,c7-local -y install java-1.8.0-openjdk-devel hadoop_3_3_0-client hive_3_3_0 tez_3_3_0 spark_3_3_0-core
 export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk
 base=/usr/bigtop/3.3.0
 export HADOOP_HOME="$base/usr/lib/hadoop"
