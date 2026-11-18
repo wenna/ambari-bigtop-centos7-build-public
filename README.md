@@ -1,5 +1,20 @@
 # Ambari 3.0.0 / Apache Bigtop 3.3.0 on CentOS 7.9 x86_64
 
+## 十节点离线运维包
+
+[运维交付草稿 el7-operations-44349066611](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-aef804c2bcd10519bdf1) 包含两个 YUM 仓库、60 个应用 RPM、283 个运行依赖 RPM、JDK 17、pgJDBC、PostgreSQL 15 镜像、配置模板与部署脚本。两个分卷共 1,949,511,680 字节。登录有草稿访问权的账号下载所有附件：
+
+```bash
+gh release download el7-operations-44349066611 -R wenna/ambari-bigtop-centos7-build-public -D delivery
+cd delivery && sha256sum -c SHA256SUMS
+mkdir kit && cat ambari-bigtop-el7.tar.part-* | tar xf - -C kit
+(cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS)
+```
+
+现场入口为 `kit/INSTALL.zh-CN.md` 和 `kit/ops/deploy-cluster.sh`。[运维手册](ops/README.md)给出数据库、fencing 和十个节点的站点参数。[六容器验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44347128227)检查了 HDFS 隔离、运行中 MapReduce 作业跨 RM 切换、Hive on Tez、跨节点 Beeline 和 Spark on YARN。[十 Agent 与数据库 TLS 验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44340595879)使用运维脚本完成两遍初始化和注册核验。[发布工作流](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44349066611)逐文件校验最终分卷。
+
+## 早期组件包与二次编译
+
 **[统一 yum 仓库下载草稿](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-4a4f5003a6e9a1dbfa52)** 包含 60 个二进制 RPM 和仓库元数据，可由有权查看草稿的账号下载。归档 SHA-256 为 `d69a4b61d3ff26971d9705bbfe6d648093496872361bf6f6a7bc047e2e2c91db`。源包、补丁及原始构建记录按 source-releases.txt 所列标签获取。管理面三容器验证已通过，[运行记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44247038617)包含 Agent 心跳和 Stack 版本结果。
 
 本仓库提供社区适配构建脚本、补丁和验证流程。目标为 EL7 x86_64，Apache Ambari 源码固定为 15feafb7dfa2f4964a01edac47c0956ab29ad99e，Apache Bigtop 源码固定为 d44a5845eeffe6bab7037a3ca816cf3c9df44029。
