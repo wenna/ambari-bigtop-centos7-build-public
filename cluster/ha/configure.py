@@ -29,6 +29,8 @@ configuration("core-site.xml", {
     "ha.failover-controller.graceful-fence.rpc-timeout.ms": "6000",
     "hadoop.tmp.dir": "/var/lib/ha/hadoop",
     "hadoop.zk.address": zk,
+    "hadoop.proxyuser.root.hosts": "master1,127.0.0.1," + socket.gethostbyname("master1"),
+    "hadoop.proxyuser.root.groups": "root",
 })
 hdfs = {
     "dfs.nameservices": "cluster",
