@@ -6,7 +6,7 @@ mkdir -p lab-jdk17 management-evidence
 tar xzf runtimes/jdk17.tar.gz -C lab-jdk17 --strip-components=1
 docker load -i runtimes/postgres15-image.tar.gz
 docker network create --internal management
-password=$(openssl rand -hex 24)
+password="Db!$(openssl rand -hex 24)"
 echo "::add-mask::$password"
 docker run -d --name management-db --network management --network-alias db.test.internal -e POSTGRES_PASSWORD="$password" -e POSTGRES_USER=ambari -e POSTGRES_DB=ambari offline/postgres:15
 for host in server agent; do

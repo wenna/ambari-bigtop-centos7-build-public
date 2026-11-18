@@ -94,6 +94,8 @@ yarn = {
 }
 for index, name in enumerate(masters, 1):
     yarn["yarn.resourcemanager.hostname.rm%d" % index] = name
+    yarn["yarn.resourcemanager.webapp.address.rm%d" % index] = name + ":8088"
+    yarn["yarn.resourcemanager.webapp.https.address.rm%d" % index] = name + ":8090"
 if host in masters:
     yarn["yarn.resourcemanager.ha.id"] = "rm%d" % (masters.index(host) + 1)
 if host in workers:
