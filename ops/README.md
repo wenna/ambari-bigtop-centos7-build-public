@@ -70,15 +70,15 @@ bash ops/check-node.sh hosts.csv /data01 /data02
 
 ## 4. PostgreSQL、Ambari Server 与十台 Agent
 
-由 DBA 提供 PostgreSQL 稳定写入域名（示例 pg-write.prod.example.internal）、主备、可信 CA 与受限账户。数据库端只允许管理和 Hive 节点入站，分别建立空的 ambari 和 hive 数据库及同名 owner。按现场密码管理流程签发凭据，通过 pg_hba.conf 限制角色、库和来源。DBA 可在 psql 中执行以下建库动作，每个库只执行一次，已有实例先确认角色与库归属。
+由 DBA 提供 PostgreSQL 稳定写入域名（示例 pg-writer.prod.example.internal）、主备、可信 CA 与受限账户。数据库端只允许管理和 Hive 节点入站，分别建立空的 ambari 和 hive 数据库，示例 owner 为 ambari 和 hive_catalog。按现场密码管理流程签发凭据，通过 pg_hba.conf 限制角色、库和来源。使用随包镜像时，参照 [PostgreSQL 离线启动说明](postgres-container.md)。DBA 可在 psql 中执行以下建库动作，每个库只执行一次，已有实例先确认角色与库归属。
 
 ```sql
 CREATE ROLE ambari LOGIN;
 \password ambari
 CREATE DATABASE ambari OWNER ambari ENCODING 'UTF8' TEMPLATE template0;
-CREATE ROLE hive LOGIN;
-\password hive
-CREATE DATABASE hive OWNER hive ENCODING 'UTF8' TEMPLATE template0;
+CREATE ROLE hive_catalog LOGIN;
+\password hive_catalog
+CREATE DATABASE hive OWNER hive_catalog ENCODING 'UTF8' TEMPLATE template0;
 ```
 
 在能读取 Server RPM 所附 DDL 的运维端，用 DBA 批准版本的 psql，设置 `PGHOST` 为写入口、`PGPORT`、`PGSSLMODE=verify-full`、`PGSSLROOTCERT` 和权限 0600 的 pgpass。以 ambari 身份对**全新空业务 schema**执行一次；导入失败先审阅错误，确认是否回滚，再处理。已有生产库须按升级/恢复流程操作。
