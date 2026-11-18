@@ -6,6 +6,10 @@ on:
         type: string
         required: true
         description: Space-separated draft release tags from this repository
+      deliver:
+        type: boolean
+        description: Save the validated binary repository as one draft release and exercise data clients
+        default: false
 permissions:
   contents: write # Reading draft release assets requires write access.
 jobs:
@@ -48,3 +52,19 @@ jobs:
             yum-staging/repodata
             yum-staging/SHA256SUMS
           retention-days: 1
+      - name: Package the complete repository for transfer
+        if: ${{ inputs.deliver }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASES: ${{ inputs.tags }}
+        run: |
+          set -euo pipefail
+          tar -cf el7-x86_64-yum.tar yum-staging
+          test "$(stat -c %s el7-x86_64-yum.tar)" -lt 2147483648
+          sha256sum el7-x86_64-yum.tar > el7-x86_64-yum.tar.sha256
+          printf '%s\n' "$INPUT_RELEASES" > source-releases.txt
+          gh release create "el7-yum-$GITHUB_RUN_ID" --draft --prerelease --target "$GITHUB_SHA" --title 'Ambari 3.0 / Bigtop 3.3.0 — CentOS 7.9 x86_64 yum repository' --notes-file docs/releases/assembled.md el7-x86_64-yum.tar el7-x86_64-yum.tar.sha256 source-releases.txt yum-staging/SHA256SUMS
+      - name: Install data clients and run smoke checks
+        if: ${{ inputs.deliver }}
+        run: |
+          docker run --rm -v "$PWD/yum-staging:/repo:ro" -v "$PWD/scripts/test-data-clients.sh:/check.sh:ro" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash /check.sh
