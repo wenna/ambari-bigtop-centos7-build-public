@@ -32,6 +32,8 @@ jobs:
           tar xf el7-runtime.tar
           rm el7-runtime.tar
           sha256sum -c manifests/runtime-SHA256SUMS >/dev/null
+          mkdir -p evidence
+          echo "el7-runtime-$RUNTIME" > evidence/runtime-release.txt
       - name: Create six containers on isolated network
         run: bash cluster/start-lab.sh
       - name: Fail active NameNode and ResourceManager and verify replica and role recovery
@@ -58,6 +60,7 @@ jobs:
           name: cluster-evidence
           path: |
             evidence/failover.log
+            evidence/runtime-release.txt
             evidence/compute-run.log
             evidence/compute/*-status.log
             evidence/compute/*-result.*

@@ -34,7 +34,7 @@ jobs:
           docker pull "$PG"
           docker tag "$PG" offline/postgres:15
           docker save offline/postgres:15 | gzip -1 > postgres15-image.tar.gz
-          docker run --rm --network none "$PG" postgres --version > ../manifests/postgres-version.txt
+          docker run --rm --network none "$PG" postgres --version | sudo tee ../manifests/postgres-version.txt
       - name: Save tested dependency volume
         env:
           GH_TOKEN: ${{ github.token }}
