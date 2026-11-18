@@ -27,10 +27,10 @@ bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env data
 | 层 | 采用的版本或验证点 | 现场工作 |
 |---|---|---|
 | 操作系统与库 | EL7.9 x86_64，系统 Python 2 继续供 yum 使用。Python 3、distro、rpm 绑定及系统库以 runtime-repo 的逐包 NEVRA 为准 | 在相同基础镜像上离线求解依赖，保存已安装 RPM 差异 |
-| 管理面 | Ambari 3.0.0.0-2.compat2.el7，Server 与 Agent 同版。已有三个容器完成 PostgreSQL 建表、启动、单 Agent HEALTHY 及 BIGTOP 3.3.0 API 检查 | 正式 DNS/TLS、十台 Agent、服务生命周期和重启 |
+| 管理面 | Ambari 3.0.0.0-2.compat2.el7，用本手册的管理脚本经 TLS 初始化 PostgreSQL 并完成十个 Agent 注册；同配置重复执行通过 | 核对正式 DNS、证书、十台主机与现场恢复流程 |
 | Java | 管理面实测 Temurin JDK 17.0.21+9；Stack 采用 EL7 OpenJDK 8 devel。固定 JAVA_HOME，核对 java -version 及 RPM release | 分别检查 Ambari Server 和数据进程实际使用的 java 可执行文件 |
 | PostgreSQL / JDBC | 管理面注册测试用 PostgreSQL 镜像摘要 e924003122c1459b25ebe2af0f5b8becc8b50ccee1354b304e5ba7ec1e0bb42c；Hive 连接、流复制和恢复另行验证 | 记录 `SHOW server_version;`、驱动版本及 SHA-256。先以相同组合验证 TLS、密码算法及故障切换 |
-| 数据面 | Hadoop 3.3.6 在本地模式执行过 WordCount，ZooKeeper 3.7.2 有三节点选举验证，Hive 3.1.3、Spark 3.3.4 有 CLI 检查，Tez 0.10.2 有 JAR 检查 | 实际跑 HDFS/YARN HA、Hive on Tez 与 Spark on YARN |
+| 数据面 | 容器内通过 HDFS 进程隔离及数据比对、YARN 携带原容器完成在途作业、Hive on Tez 与 Spark on YARN 真实分组聚合 | 五台物理 Worker 的机架、磁盘、资源配额、主机断电与业务负载须现场验收 |
 
 这些版本是已有证据对应的基线。通用“最低支持版本”须以组件声明与降版实测分别证明，当前未做降版矩阵。包管理器声明的最低依赖可通过 `rpm -qpR 包文件` 查看。CI 的 Python/Maven/Gradle/编译器属于构建机，部署节点只安装运行包。CentOS Linux 7 已结束社区安全维护，需落实补丁来源、负责人和迁移期限。[CentOS 生命周期](https://www.centos.org/centos-linux/) · [管理面验证](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44247038617) · [数据客户端验证](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44248922277)
 
