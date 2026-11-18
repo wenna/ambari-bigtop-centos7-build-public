@@ -48,6 +48,10 @@ jobs:
         run: bash cluster/compute/run.sh 2>&1 | tee evidence/compute-run.log
       - name: Check success markers
         run: |
+          bash cluster/compute/check-hs2.sh 2>&1 | tee evidence/hs2-run.log
+          grep '^HIVESERVER2_JDBC_PASSED' evidence/hs2-run.log
+      - name: Check distributed workloads and failover
+        run: |
           grep '^HDFS_HA_PASSED ' evidence/failover.log
           grep '^YARN_HA_PASSED ' evidence/failover.log
           grep '^YARN_WORK_PRESERVING_FAILOVER_PASSED ' evidence/failover.log
@@ -70,6 +74,7 @@ jobs:
             evidence/runtime-release.txt
             evidence/ha/*/*-diagnostic.log
             evidence/compute-run.log
+            evidence/hs2-run.log
             evidence/compute/*-status.log
             evidence/compute/*-diagnostic.log
             evidence/compute/*-result.*

@@ -40,6 +40,7 @@ write_site(os.path.join(os.environ["TEZ_CONF_DIR"], "tez-site.xml"), {
     "tez.lib.uris": os.environ["TEZ_ARCHIVE_URI"],
     "tez.use.cluster.hadoop-libs": "false",
     "tez.local.mode": "false",
+    "tez.session.am.dag.submit.timeout.secs": "45",
     "tez.am.resource.memory.mb": "768",
     "tez.am.launch.cmd-opts": "-Xmx512m",
     "tez.runtime.io.sort.mb": "96",

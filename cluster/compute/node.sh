@@ -31,10 +31,6 @@ check_application() {
   grep -Eq '^[[:space:]]*State[[:space:]]*:[[:space:]]*FINISHED[[:space:]]*$' "$report"
   grep -Eq '^[[:space:]]*Final-State[[:space:]]*:[[:space:]]*SUCCEEDED[[:space:]]*$' "$report"
 }
-tez_apps() {
-  yarn application -list -appTypes TEZ -appStates ALL |
-    awk '$1 ~ /^application_[0-9]+_[0-9]+$/ {print $1}' | LC_ALL=C sort -u
-}
 case "$1" in
   configure)
     umask 077
@@ -79,7 +75,7 @@ case "$1" in
   ready)
     for attempt in {1..60}; do
       if timeout 2 bash -c 'exec 3<>/dev/tcp/master1/9083' 2>/dev/null; then
-        if timeout 45 "$hive" -S -e 'SHOW DATABASES' >"$evidence/metastore-ready.log" 2>&1 &&
+        if timeout 45 "$hive" -S --hiveconf hive.execution.engine=mr -e 'SHOW DATABASES' >"$evidence/metastore-ready.log" 2>&1 &&
             grep -Fxq default "$evidence/metastore-ready.log"; then exit 0; fi
       fi
       sleep 2
@@ -89,25 +85,29 @@ case "$1" in
     data="/ci-compute/$2/input"
     hdfs dfs -mkdir -p "$data"
     printf 'alpha,2\nbeta,7\nalpha,3\n' | hdfs dfs -put - "$data/readings.csv"
-    "$hive" -S -e "CREATE DATABASE ci_$2;
+    "$hive" -S --hiveconf hive.execution.engine=mr -e "CREATE DATABASE ci_$2;
       CREATE EXTERNAL TABLE ci_$2.readings (label STRING, amount INT)
       ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE LOCATION '$data';" \
       >"$evidence/prepare.log" 2>&1
     ;;
   tez)
-    tez_apps >"$work/tez-before"
+    query_name="ci_group_readings_$2"
+    history_dir="/evidence/.tez-history-$2"
+    mkdir -p "$history_dir"
     "$hive" -S --hiveconf "tez.lib.uris=$TEZ_ARCHIVE_URI" \
+      --hiveconf "hive.query.name=$query_name" \
+      --hiveconf "tez.simple.history.logging.dir=file://$history_dir" \
       -e "SET tez.lib.uris; SELECT label, sum(amount) FROM ci_$2.readings GROUP BY label;" \
       >"$work/hive-stdout" 2>"$evidence/hive-query.log"
     grep -Fx "tez.lib.uris=$TEZ_ARCHIVE_URI" "$work/hive-stdout"
     grep -Fvx "tez.lib.uris=$TEZ_ARCHIVE_URI" "$work/hive-stdout" >"$evidence/hive-result.log"
     LC_ALL=C sort "$evidence/hive-result.log" >"$work/hive-sorted"
     diff -u <(printf 'alpha\t5\nbeta\t7\n') "$work/hive-sorted"
-    tez_apps >"$work/tez-after"
-    # This isolated test runs exactly one query between snapshots.
-    tez_id=$(LC_ALL=C comm -13 "$work/tez-before" "$work/tez-after")
+    python3 /project/cluster/compute/tez-history.py "$history_dir" "$query_name" |
+      tee "$evidence/tez-dag-status.log"
+    read -r dag_id tez_id _ <"$evidence/tez-dag-status.log"
     check_application "$tez_id" TEZ
-    echo "HIVE_TEZ_PASSED $tez_id"
+    echo "HIVE_TEZ_PASSED $tez_id $dag_id"
     ;;
   spark)
     unset HADOOP_CLASSPATH
