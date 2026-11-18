@@ -1,0 +1,46 @@
+name: Resolve signed EL7 offline dependencies
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  closure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      CENTOS: centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4
+      PG: postgres@sha256:e924003122c1459b25ebe2af0f5b8becc8b50ccee1354b304e5ba7ec1e0bb42c
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: bash cluster/archive-input.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Resolve and verify dependency closure
+        run: |
+          mkdir -p offline
+          docker run --rm -v "$PWD:/project:ro" -v "$PWD/yum-staging:/repo:ro" -v "$PWD/offline:/out" "$CENTOS" bash /project/cluster/prepare-runtime.sh
+      - name: Install all deployment roles without network
+        run: |
+          docker run --network none --rm -v "$PWD:/project:ro" -v "$PWD/yum-staging:/repo:ro" -v "$PWD/offline/runtime-repo:/runtime:ro" "$CENTOS" bash /project/cluster/install-offline.sh
+      - name: Freeze runtime binaries
+        run: |
+          mkdir -p offline/runtimes
+          cd offline/runtimes
+          curl -fLsS --retry 3 https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz -o jdk17.tar.gz
+          curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/postgresql/postgresql/42.7.7/postgresql-42.7.7.jar -o postgresql.jar
+          echo '8b9b611d917e3dfd8419d3566b5949226f69b052fed7e109c1368add1dfe8711  jdk17.tar.gz' | sha256sum -c -
+          echo '157963d60ae66d607e09466e8c0cdf8087e9cb20d0159899ffca96bca2528460  postgresql.jar' | sha256sum -c -
+          docker pull "$PG"
+          docker tag "$PG" offline/postgres:15
+          docker save offline/postgres:15 | gzip -1 > postgres15-image.tar.gz
+          docker run --rm --network none "$PG" postgres --version > ../manifests/postgres-version.txt
+      - name: Save tested dependency volume
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd offline
+          tar cf ../el7-runtime.tar runtime-repo manifests runtimes
+          cd ..
+          sha256sum el7-runtime.tar > runtime.sha256
+          gh release create "el7-runtime-$GITHUB_RUN_ID" --target "$GITHUB_SHA" --draft --title "EL7 offline runtime $GITHUB_RUN_ID" --notes 'Signed EL7 dependencies installed with network disabled. JDK17, JDBC and PG15 container included.' el7-runtime.tar runtime.sha256 offline/manifests/runtime-versions.tsv
