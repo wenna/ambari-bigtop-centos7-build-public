@@ -13,7 +13,7 @@ for host in server agent; do
   docker run -d --name "$host" --hostname "$host.test.internal" --network management --network-alias "$host.test.internal" \
     -v "$PWD/cluster:/project/cluster:ro" -v "$PWD/lab-jdk17:/opt/jdk17:ro" \
     -v "$PWD/runtimes/postgresql.jar:/opt/cluster/postgresql.jar:ro" -v "$PWD/yum-staging:/repo:ro" -v "$PWD/runtime-repo:/runtime:ro" "$centos" sleep infinity
-  docker exec "$host" bash /project/cluster/install-offline.sh
+  docker exec "$host" bash /project/cluster/install-offline.sh "ambari-$host" java-1.8.0-openjdk-devel
 done
 docker exec server cat /var/lib/ambari-server/resources/Ambari-DDL-Postgres-CREATE.sql | docker exec -i management-db psql -U ambari -d ambari -X -v ON_ERROR_STOP=1 >/dev/null
 docker exec server ambari-server setup --jdbc-db=postgres --jdbc-driver=/opt/cluster/postgresql.jar

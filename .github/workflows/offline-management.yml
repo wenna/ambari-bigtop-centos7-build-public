@@ -22,6 +22,8 @@ jobs:
       - if: failure()
         run: |
           docker exec server tail -n 30 /var/log/ambari-server/ambari-server.log || true
+          docker exec server tail -n 100 /var/log/ambari-server/ambari-server.out || true
+          docker logs --tail 25 management-db || true
           docker exec agent tail -n 30 /var/log/ambari-agent/ambari-agent.log || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
