@@ -1,0 +1,7 @@
+{
+  "href" : "http://localhost:8080/api/v1/stacks/BIGTOP/versions/3.3.0?fields=Versions/stack_name,Versions/stack_version",
+  "Versions" : {
+    "stack_name" : "BIGTOP",
+    "stack_version" : "3.3.0"
+  }
+}
