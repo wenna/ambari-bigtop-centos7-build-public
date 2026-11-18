@@ -1,0 +1,19 @@
+# Source this file inside a topology container before running Hadoop clients.
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk
+base=/usr/bigtop/3.3.0
+export HADOOP_HOME="$base/usr/lib/hadoop"
+export HADOOP_COMMON_HOME="$HADOOP_HOME"
+export HADOOP_LIBEXEC_DIR="$HADOOP_HOME/libexec"
+export HADOOP_HDFS_HOME="$base/usr/lib/hadoop-hdfs"
+export HADOOP_YARN_HOME="$base/usr/lib/hadoop-yarn"
+export HADOOP_MAPRED_HOME="$base/usr/lib/hadoop-mapreduce"
+export HADOOP_CONF_DIR=/etc/hadoop/conf
+export YARN_CONF_DIR="$HADOOP_CONF_DIR"
+export SPARK_HOME="$base/usr/lib/spark"
+export HIVE_HOME="$base/usr/lib/hive"
+export TEZ_HOME="$base/usr/lib/tez"
+export HADOOP_HEAPSIZE_MAX=256m
+export HADOOP_LOG_DIR="/evidence/ha/$(hostname -s)"
+export YARN_LOG_DIR="$HADOOP_LOG_DIR"
+export HADOOP_PID_DIR=/run/ha
+export PATH="$HADOOP_HOME/bin:$HADOOP_HDFS_HOME/bin:$HADOOP_YARN_HOME/bin:$HADOOP_MAPRED_HOME/bin:$base/usr/bin:$JAVA_HOME/bin:$PATH"

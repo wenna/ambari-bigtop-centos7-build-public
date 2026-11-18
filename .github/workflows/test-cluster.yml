@@ -1,0 +1,65 @@
+name: Exercise HA and distributed SQL and Spark on offline EL7
+on:
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: Tested el7-runtime release numeric run ID
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    env:
+      CENTOS: centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: bash cluster/archive-input.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Fetch offline dependencies
+        env:
+          RUNTIME: ${{ inputs.runtime }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$RUNTIME" =~ ^[0-9]+$ ]]
+          gh release download "el7-runtime-$RUNTIME" -p el7-runtime.tar -p runtime.sha256
+          sha256sum -c runtime.sha256
+          tar xf el7-runtime.tar
+          rm el7-runtime.tar
+          sha256sum -c manifests/runtime-SHA256SUMS >/dev/null
+      - name: Create six containers on isolated network
+        run: bash cluster/start-lab.sh
+      - name: Fail active NameNode and ResourceManager and verify replica and role recovery
+        run: bash cluster/ha/run.sh 2>&1 | tee evidence/failover.log
+      - name: Run SQL and Spark workloads on YARN after failover
+        run: bash cluster/compute/run.sh 2>&1 | tee evidence/compute-run.log
+      - name: Check success markers
+        run: |
+          grep '^HDFS_HA_PASSED ' evidence/failover.log
+          grep '^YARN_HA_PASSED ' evidence/failover.log
+          grep '^HIVE_TEZ_PASSED ' evidence/compute-run.log
+          grep '^SPARK_YARN_PASSED ' evidence/compute-run.log
+      - name: Publish bounded diagnostics in workflow log
+        if: failure()
+        run: |
+          docker ps -a --format '{{.Names}} {{.Status}}'
+          if [[ -d evidence ]]; then
+            sudo find evidence -name '*.log' -type f -exec sh -c 'for f; do echo "=== $f"; tail -n 22 "$f"; done' sh {} +
+          fi
+      - name: Retain acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cluster-evidence
+          path: |
+            evidence/failover.log
+            evidence/compute-run.log
+            evidence/compute/*-status.log
+            evidence/compute/*-result.*
+            evidence/compute/catalog-check.log
+          retention-days: 3
