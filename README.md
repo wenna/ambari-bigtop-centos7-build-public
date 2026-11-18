@@ -13,3 +13,15 @@ BUILD_EXTRA=zookeeper bash scripts/build-foundation.sh
 ```
 
 使用单独的干净工作目录构建 Hadoop、Hive、Tez 或 Spark 时，将 BUILD_EXTRA 改为相应的小写名称。Bigtop 产物在 upstream/bigtop/output，Ambari 产物在 Server 和 Agent 模块的 target/rpm 下。输出以实际运行记录和 SHA-256 清单为准。Actions 由维护者手动触发，使用标准 Ubuntu 运行器。上传到 Release 的包保留为待验收草稿。
+
+## 准备内部 yum 仓库
+
+每个草稿的资产下载到单独目录，保留二进制包、源码 RPM 和校验清单。使用有权读取草稿的 GitHub 账号。例如：
+
+```bash
+gh release download c7-foundation-zookeeper-20261117 -R wenna/ambari-bigtop-centos7-build-public -D downloads/foundation
+gh release download c7-hive-44231489365 -R wenna/ambari-bigtop-centos7-build-public -D downloads/hive
+python3 scripts/make-yum-repo.py yum-staging downloads/foundation downloads/hive
+```
+
+示例集合用于检查元数据；安装完整服务前还需提供对应的 Hadoop 和其他运行依赖。命令需要 Python 3.6+ 及 createrepo_c 或 createrepo，并要求输出目录尚不存在。脚本校验输入 RPM 摘要、检查重名冲突，将二进制包复制到新目录并生成 repodata。正式发布需按内部流程对包签名并重新生成元数据。

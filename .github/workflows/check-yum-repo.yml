@@ -1,0 +1,50 @@
+name: Validate release assets and generate yum repository metadata
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        type: string
+        required: true
+        description: Space-separated draft release tags from this repository
+permissions:
+  contents: write # Reading draft release assets requires write access.
+jobs:
+  repo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Download and verify release RPMs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_INPUT: ${{ inputs.tags }}
+        run: |
+          set -euo pipefail
+          read -ra tags <<< "$TAG_INPUT"
+          (( ${#tags[@]} > 0 ))
+          folders=()
+          for tag in "${tags[@]}"; do
+            [[ "$tag" =~ ^[a-z0-9][a-z0-9.-]+$ ]]
+            dir="downloads/$tag"
+            gh release download "$tag" -p '*.rpm' -p '*SHA256SUMS' -D "$dir"
+            folders+=("$dir")
+          done
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq createrepo-c
+          python3 scripts/make-yum-repo.py yum-staging "${folders[@]}"
+      - name: Read metadata with CentOS 7 yum
+        run: |
+          docker run --rm -v "$PWD/yum-staging:/repo:ro" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash -euc '
+            printf "[tested]\nname=Local build\nbaseurl=file:///repo\nenabled=0\ngpgcheck=1\n" > /etc/yum.repos.d/tested.repo
+            yum --disablerepo="*" --enablerepo=tested makecache
+            yum --disablerepo="*" --enablerepo=tested list available
+          '
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: validated-yum-metadata
+          path: |
+            yum-staging/repodata
+            yum-staging/SHA256SUMS
+          retention-days: 1
