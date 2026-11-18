@@ -31,13 +31,13 @@ docker exec "$server" /opt/jdk17/bin/java -version
 docker exec "$server" cat /var/lib/ambari-server/resources/Ambari-DDL-Postgres-CREATE.sql | docker exec -i "$db" psql -X -v ON_ERROR_STOP=1 -U ambari -d ambari > artifacts/ambari-schema.log
 docker exec "$server" ambari-server setup -s --java-home=/opt/jdk17 --ambari-java-home=/opt/jdk17 --stack-java-home=/usr/lib/jvm/java-1.8.0-openjdk --database=postgres --databasehost=db.test.internal --databaseport=5432 --databasename=ambari --databaseusername=ambari --databasepassword="$pw" --postgresschema=public
 docker exec "$server" ambari-server start
-# Configure the host as on first install. The independent package test exercises reset.
-docker exec "$agent" sed -i -E 's/^hostname[[:space:]]*=.*/hostname=server.test.internal/' /etc/ambari-agent/conf/ambari-agent.ini
+docker exec "$agent" ambari-agent reset server.test.internal
 docker exec "$agent" ambari-agent start
 for attempt in {1..60}; do
   if docker exec "$server" curl -fsS -u admin:admin 'http://localhost:8080/api/v1/hosts/agent.test.internal?fields=Hosts/host_state' > artifacts/ambari-registration.json &&
      jq -e '.Hosts.host_name == "agent.test.internal" and .Hosts.host_state == "HEALTHY"' artifacts/ambari-registration.json; then
-    docker exec "$server" curl -fsS -u admin:admin http://localhost:8080/api/v1/stacks/BIGTOP/versions/3.3.0 > artifacts/ambari-stack.json
+    docker exec "$server" curl -sS -u admin:admin 'http://localhost:8080/api/v1/stacks/BIGTOP/versions/3.3.0?fields=Versions/stack_name,Versions/stack_version' > artifacts/ambari-stack.json
+    cat artifacts/ambari-stack.json
     jq -e '.Versions.stack_version == "3.3.0"' artifacts/ambari-stack.json
     exit 0
   fi

@@ -1,0 +1,36 @@
+name: Verify Ambari agent heartbeat and BIGTOP stack
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        type: string
+        required: true
+        description: Successful public Ambari build run number
+permissions:
+  contents: read
+  actions: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Retrieve checked pair of RPMs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" | jq -e '.path == ".github/workflows/build-ambari.yml" and .head_branch == "main" and .event == "workflow_dispatch" and .conclusion == "success"'
+          gh run download "$BUILD_RUN" -n "ambari-rpms-$BUILD_RUN" -D artifacts/ambari
+          test -f artifacts/ambari/ambari-server-3.0.0.0-2.compat2.el7.x86_64.rpm
+          test -f artifacts/ambari/ambari-agent-3.0.0.0-2.compat2.el7.x86_64.rpm
+      - run: bash scripts/verify-ambari-registration.sh
+      - if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: heartbeat-and-stack-${{ github.run_id }}
+          path: artifacts/ambari-*.json
+          retention-days: 1
