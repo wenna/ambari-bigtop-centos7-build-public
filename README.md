@@ -4,6 +4,29 @@
 
 本仓库提供社区适配构建脚本、补丁和验证流程。目标为 EL7 x86_64，Apache Ambari 源码固定为 15feafb7dfa2f4964a01edac47c0956ab29ad99e，Apache Bigtop 源码固定为 d44a5845eeffe6bab7037a3ca816cf3c9df44029。
 
+使用有草稿访问权的账号下载统一仓库：
+
+```bash
+gh release download el7-yum-44247482610 -R wenna/ambari-bigtop-centos7-build-public -D delivery
+cd delivery
+sha256sum -c el7-x86_64-yum.tar.sha256
+tar xf el7-x86_64-yum.tar
+(cd yum-staging && sha256sum -c SHA256SUMS)
+```
+
+本次 EL7 修订和验证：
+
+| 组件 | 二次构建时保留的改动 | 已验证范围 |
+|---|---|---|
+| Ambari 3.0.0 | 使用 JDK 17 与 Python 3，修正 Agent reset 写入配置的文件模式，RPM release 2.compat2.el7 | PostgreSQL 初始化、服务端启动、Agent reset/注册、HEALTHY 心跳、BIGTOP 3.3.0 API |
+| Bigtop 工具和 ZooKeeper 3.7.2 | Python 3 选择器、版本化路径和包名 | 基础包在 EL7 安装；早期固定版本构建完成三节点选举与 leader 故障切换 |
+| Hadoop 3.3.6 | 固定 YARN 前端依赖锁文件，固定 GlassFish EL 3.0.1-b12，保留上游 Bigtop 修补 | 从最终归档安装，版本检查，MapReduce 本地 WordCount 输出校验 |
+| Hive 3.1.3 | 预取并校验 Apache 18 父 POM | 最终归档安装、Hive CLI 版本检查 |
+| Tez 0.10.2 | 补充测试的 Hamcrest 依赖，启用容器内前端构建配置 | 最终归档安装、Tez API JAR 检查 |
+| Spark 3.3.4 | Bigtop 正式构建配置与版本化包名 | 最终归档安装、spark-submit 版本检查 |
+
+公共运行记录：[组合仓库元数据验证](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44247046348)、[最终归档安装和 WordCount](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44248922277)。生产节点签名、实际 HDFS/YARN 高可用、Hive on Tez 与 Spark on YARN 作业应在部署环境单独验收。
+
 在带 Docker、Python 3、Git 和 Bash 的 x86_64 Linux 构建机上，以独立目录重编：
 
 ```bash
