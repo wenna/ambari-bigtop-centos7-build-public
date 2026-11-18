@@ -1,5 +1,6 @@
 """Keep database credentials in the metastore service configuration on master1."""
 import os
+import socket
 import xml.etree.ElementTree as ET
 
 
@@ -19,6 +20,8 @@ common = {
 }
 server = dict(common)
 server.update({
+    "hadoop.proxyuser.root.hosts": "master1,127.0.0.1," + socket.gethostbyname("master1"),
+    "hadoop.proxyuser.root.groups": "root",
     "javax.jdo.option.ConnectionDriverName": "org.postgresql.Driver",
     "javax.jdo.option.ConnectionURL": "jdbc:postgresql://db:5432/hive",
     "javax.jdo.option.ConnectionUserName": "hive",

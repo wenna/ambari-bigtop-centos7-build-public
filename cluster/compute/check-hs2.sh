@@ -12,7 +12,7 @@ case "${1:-run}" in
         docker exec master2 timeout --kill-after=15s 900s bash "$script" query; then
       exit 0
     fi
-    docker exec master1 bash -c 'for f in "$1"/hs2*.log; do
+    docker exec master1 bash -c 'grep -E "Caused by:|ERROR|MetaException" "$1/hive.log" | tail -n 30; for f in "$1"/hs2*.log; do
       test -s "$f" || continue
       echo "=== $f"; tail -n 45 "$f"
     done' _ "$evidence"
