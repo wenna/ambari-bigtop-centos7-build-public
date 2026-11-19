@@ -15,11 +15,18 @@ if api 'clusters/lab/requests?fields=Requests/id,Requests/request_status' > prov
     api "clusters/lab/requests/$rid/tasks?fields=Tasks/id,Tasks/role,Tasks/status,Tasks/command,Tasks/host_name" | jq '[.items[].Tasks | {id,role,status,command,host_name}]' > "provision-evidence/request-$rid-tasks.json" || true
     while read -r host task; do
       [[ $host =~ ^bd0[1-3]\.lab\.test$ && $task =~ ^[0-9]+$ ]] || continue
-      docker exec "$host" tail -n 75 "/var/lib/ambari-agent/data/errors-$task.txt" "/var/lib/ambari-agent/data/output-$task.txt" 2>/dev/null |
-        redact > "provision-evidence/request-$rid-task-$task-error.txt" || true
+      for stream in errors output; do
+        docker exec "$host" tail -n 100 "/var/lib/ambari-agent/data/$stream-$task.txt" 2>/dev/null |
+          redact > "provision-evidence/request-$rid-task-$task-$stream.txt" || true
+      done
+      api "clusters/lab/requests/$rid/tasks/$task?fields=Tasks/stderr,Tasks/exit_code" |
+        jq -r '.Tasks | "exit_code=\(.exit_code)\n\(.stderr)"' | redact > "provision-evidence/request-$rid-task-$task-api-error.txt" || true
     done < <(jq -r '[.[] | select(.status=="FAILED" or .status=="TIMEDOUT" or .status=="HOLDING_FAILED")] | .[:4][] | "\(.host_name) \(.id)"' "provision-evidence/request-$rid-tasks.json")
   done < <(jq -r '.items[].Requests.id' provision-evidence/requests.json)
 fi
 api 'clusters/lab/host_components?fields=HostRoles/component_name,HostRoles/host_name,HostRoles/state' > provision-evidence/host-components.json || true
+for host in bd01.lab.test bd02.lab.test bd03.lab.test; do
+  docker exec "$host" rpm -qa --qf '%{NAME}\t%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "provision-evidence/$host-after.tsv" || true
+done
 docker exec "$server" tail -n 160 /var/log/ambari-server/ambari-server.log 2>/dev/null |
   grep -Ei 'WARN|ERROR|Exception' | redact > provision-evidence/server-errors.txt || true
