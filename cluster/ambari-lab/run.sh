@@ -62,7 +62,7 @@ printf '%s\n' "$hive_pass" | docker exec -i "$server" bash -ec 'umask 077; cat >
 unset hive_pass
 jq '.tez_archive="/bigtop/apps/3.3.0/tez/tez.tar.gz" | .nameservice="lab" | .datanode_dirs=["/disk1/hdfs/data"] | .nm_local_dirs=["/disk1/yarn/local"] |
     .pg_url="jdbc:postgresql://pg.lab.test:5432/hive?sslmode=verify-full&sslrootcert=/etc/pki/bigtop/ca.crt" |
-    .nm_memory_mb=1536 | .nm_vcores=2 | .task_memory_mb=512' production/site.example.json > "$work/site.json"
+    .proxy_groups=["hadoop"] | .nm_memory_mb=1536 | .nm_vcores=2 | .task_memory_mb=512' production/site.example.json > "$work/site.json"
 docker exec "$server" install -d -m 700 /root/lab
 docker cp "$work/site.json" "$server:/root/lab/site.json"
 docker cp "$lab/hosts.csv" "$server:/root/lab/hosts.csv"
@@ -96,3 +96,19 @@ for host in "${hosts[@]}"; do
 done
 bash "$lab/diagnostics.sh"
 python3 "$lab/verify.py" "$lab/hosts.csv" provision-evidence
+gateway=bd03.lab.test
+docker exec "$gateway" install -d -m 0755 /tmp/ambari-workload
+for source in ops/smoke-yarn.sh cluster/compute/ComputeCheck.java "$lab/workloads.sh"; do
+  docker cp "$source" "$gateway:/tmp/ambari-workload/"
+done
+tag="${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+[[ $tag =~ ^[0-9]+_[0-9]+$ ]]
+docker exec -u hdfs "$gateway" bash /tmp/ambari-workload/workloads.sh "$tag" prepare
+docker exec -u ambari-qa "$gateway" timeout 25m bash /tmp/ambari-workload/workloads.sh "$tag" |
+  tee provision-evidence/workloads.log
+count=$(docker exec -i mgmt-db psql -XAt -v ON_ERROR_STOP=1 -U ambari -d hive <<SQL
+SELECT count(*) FROM "DBS" d JOIN "TBLS" t ON t."DB_ID"=d."DB_ID" WHERE d."NAME"='lab_$tag' AND t."TBL_NAME"='readings';
+SQL
+)
+[[ $count == 1 ]]
+printf 'POSTGRES_METASTORE_PASSED lab_%s.readings\n' "$tag" | tee -a provision-evidence/workloads.log
