@@ -33,8 +33,9 @@ with tarfile.open(fileobj=sys.stdin.buffer, mode="r|") as archive:
             actual[name] = digest(stream)
 if actual != expected or not expected:
     raise ValueError("Archive files or checksums differ from the delivery manifest")
-for directory, count in (("yum-staging/", 60), ("runtime-repo/", 283)):
+runtime_count = int(sys.argv[1]) if len(sys.argv) == 2 else 283
+for directory, count in (("yum-staging/", 60), ("runtime-repo/", runtime_count)):
     found = sum(n.startswith(directory) and n.endswith(".rpm") for n in expected)
     if found != count:
         raise ValueError("{} contains {} RPMs".format(directory, found))
-print("Verified all {} files, including 60 application and 283 runtime RPMs".format(len(actual)))
+print("Verified all {} files, including 60 application and {} runtime RPMs".format(len(actual), runtime_count))

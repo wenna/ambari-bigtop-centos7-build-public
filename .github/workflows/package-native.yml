@@ -1,0 +1,40 @@
+name: Assemble native Ambari EL7 candidate
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Verify management bootstrap and native blueprints
+        run: |
+          python3 -m unittest discover -s tests
+          bash tests/test_ambari_bootstrap.sh
+          bash tests/test_os_preflight.sh
+      - name: Assemble a new offline kit
+        run: |
+          set -o pipefail
+          bash cluster/archive-input.sh
+          gh release download el7-runtime-44273252473 -p el7-runtime.tar
+          sha256sum -c manifests/runtime-44273252473.sha256
+          tar xf el7-runtime.tar && rm el7-runtime.tar
+          sha256sum --quiet -c manifests/runtime-SHA256SUMS
+          bash cluster/native-runtime.sh
+          mkdir -p kit/cluster delivery
+          mv yum-staging runtime-repo runtimes kit/
+          cp -a manifests ops production kit/
+          cp cluster/provision-node.sh kit/cluster/
+          cp docs/runtime-baseline.md kit/DEPENDENCIES.zh-CN.md
+          cp ops/AMBARI.zh-CN.md kit/INSTALL.zh-CN.md
+          git archive "$GITHUB_SHA" -o kit/build-source.tar.gz
+          (cd kit && sha256sum --quiet -c manifests/runtime-SHA256SUMS && find . -type f ! -path ./SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+          (cd kit && sha256sum SHA256SUMS) > kit-manifest.sha256
+          tar cf - -C kit . | split -b 950M -d -a 2 - delivery/ambari-native-el7.tar.part-
+          (cd delivery && sha256sum *.part-* > SHA256SUMS && sha256sum -c SHA256SUMS)
+          cat delivery/*.part-* | python3 scripts/check-operations-stream.py 287
+          gh release create "el7-ambari-native-rc-$GITHUB_RUN_ID" --draft --target "$GITHUB_SHA" --title 'CentOS 7.9 x86_64 · Ambari 原生安装候选包' --notes '安装入口见 INSTALL.zh-CN.md。先执行 ambari 阶段，再通过 Ambari Blueprints 部署 BIGTOP。此草稿为候选包；发布前请核对对应原生安装及故障切换验收。' delivery/* kit-manifest.sha256 kit/INSTALL.zh-CN.md kit/manifests/runtime-versions.tsv kit/manifests/application-rpm-requires.txt
