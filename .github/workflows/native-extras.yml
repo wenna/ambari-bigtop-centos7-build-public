@@ -11,7 +11,7 @@ jobs:
       - name: Resolve and verify signed EL7 RPMs
         run: |
           mkdir native-extras
-          docker run --rm -v "$PWD/native-extras:/out" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash -se <<'SH'
+          docker run --rm -i -v "$PWD/native-extras:/out" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash -se <<'SH'
           set -o pipefail
           for r in os updates; do printf '[el7-%s]\nname=EL7\nbaseurl=https://vault.centos.org/7.9.2009/%s/$basearch/\ngpgcheck=1\ngpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7\n' "$r" "$r" > "/etc/yum.repos.d/el7-$r.repo"; done
           yum -y --disablerepo='*' --enablerepo=el7-os,el7-updates install yum-utils createrepo
@@ -21,6 +21,7 @@ jobs:
           createrepo -q .
           rpm -qp --qf '%{NAME}\t%{VERSION}-%{RELEASE}.%{ARCH}\n' *.rpm > VERSIONS.tsv
           SH
+          test -s native-extras/VERSIONS.tsv && test -s native-extras/repodata/repomd.xml
           tar czf native-el7-extras.tar.gz native-extras
           sha256sum native-el7-extras.tar.gz > native-extras.sha256
       - name: Retain signed dependencies in a draft
