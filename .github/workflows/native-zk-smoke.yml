@@ -1,0 +1,24 @@
+name: Verify native Ambari repository and ZooKeeper lifecycle
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    env:
+      AGENT_COUNT: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Fetch pinned offline software
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash cluster/archive-input.sh
+          gh release download el7-runtime-44273252473 -p el7-runtime.tar
+          sha256sum -c manifests/runtime-44273252473.sha256
+          tar xf el7-runtime.tar && rm el7-runtime.tar
+      - run: bash cluster/check-management-installer.sh
+      - run: bash cluster/native-zk-smoke.sh
