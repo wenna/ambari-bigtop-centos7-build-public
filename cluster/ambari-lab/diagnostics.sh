@@ -27,6 +27,7 @@ fi
 api 'clusters/lab/host_components?fields=HostRoles/component_name,HostRoles/host_name,HostRoles/state' > provision-evidence/host-components.json || true
 for host in bd01.lab.test bd02.lab.test bd03.lab.test; do
   docker exec "$host" rpm -qa --qf '%{NAME}\t%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "provision-evidence/$host-after.tsv" || true
+  docker exec "$host" bash -c 'printf "Container init limits:\n"; grep -E "Max (open files|processes|core file size)" /proc/1/limits; if test -f /etc/security/limits.d/hdfs.conf; then grep -E "^[^#].*(nofile|nproc)" /etc/security/limits.d/hdfs.conf; su hdfs -l -s /bin/bash -c '\''grep -E "Max (open files|processes|core file size)" /proc/self/limits'\''; fi' > "provision-evidence/$host-limits.txt" 2>&1 || true
 done
 docker exec "$server" tail -n 160 /var/log/ambari-server/ambari-server.log 2>/dev/null |
   grep -Ei 'WARN|ERROR|Exception' | redact > provision-evidence/server-errors.txt || true
