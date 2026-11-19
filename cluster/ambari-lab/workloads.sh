@@ -22,10 +22,12 @@ work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 fs=$(hdfs getconf -confKey fs.defaultFS)
 [[ $fs == hdfs://lab ]]
-bash /tmp/ambari-workload/smoke-yarn.sh
+status=0
+bash /tmp/ambari-workload/smoke-yarn.sh || status=1
 data=$HDFS_TEST_PARENT/lab_$tag
 hdfs dfs -mkdir -p "$data/input"
 printf 'alpha,2\nbeta,7\nalpha,3\n' | hdfs dfs -put - "$data/input/readings.csv"
+hive_job() {
 db=lab_$tag
 beeline=("$HIVE_HOME/bin/beeline" -u 'jdbc:hive2://bd03.lab.test:10000/default' -n ambari-qa --silent=true --showHeader=false --outputformat=tsv2)
 list_tez() { yarn application -list -appTypes TEZ -appStates ALL | awk '$1 ~ /^application_[0-9]+_[0-9]+$/{print $1}' | sort -u; }
@@ -41,6 +43,8 @@ tez_app=$(comm -13 "$work/before" "$work/after")
 yarn application -status "$tez_app" > "$work/tez-status"
 grep -Eq 'Application-Type[[:space:]]*:[[:space:]]*TEZ[[:space:]]*$' "$work/tez-status"
 printf 'HIVE_JDBC_TEZ_PASSED %s %s rows=alpha:5,beta:7\n' "$db" "$tez_app"
+}
+spark_job() {
 export SPARK_DIST_CLASSPATH
 SPARK_DIST_CLASSPATH=$(hadoop classpath --glob)
 javac -cp "$SPARK_HOME/jars/*:$SPARK_DIST_CLASSPATH" -d "$work" /tmp/ambari-workload/ComputeCheck.java
@@ -58,3 +62,12 @@ yarn application -status "$spark_app" > "$work/spark-status"
 grep -Eq 'Application-Type[[:space:]]*:[[:space:]]*SPARK[[:space:]]*$' "$work/spark-status"
 grep -Eq 'Final-State[[:space:]]*:[[:space:]]*SUCCEEDED[[:space:]]*$' "$work/spark-status"
 printf 'SPARK_YARN_PASSED %s rows=alpha:5,beta:7\n' "$spark_app"
+}
+for job in hive_job spark_job; do
+  set +e
+  (set -e; "$job")
+  result=$?
+  set -e
+  if (( result )); then echo "$job failed" >&2; status=1; fi
+done
+exit "$status"
