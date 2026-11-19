@@ -57,7 +57,8 @@ def verify(inventory, evidence):
             require(rpms(evidence / (host + '-after.tsv')).get('tez_3_3_0') == release['tez_3_3_0'], 'Wrong Tez RPM on ' + host)
     checks = {task['role'] for task in tasks if task['command'] == 'SERVICE_CHECK' and task['status'] == 'COMPLETED'}
     for service in ('ZOOKEEPER', 'HDFS', 'YARN', 'MAPREDUCE2', 'TEZ', 'HIVE', 'SPARK'):
-        require(service + '_SERVICE_CHECK' in checks, 'No successful service check: ' + service)
+        role = 'ZOOKEEPER_QUORUM_SERVICE_CHECK' if service == 'ZOOKEEPER' else service + '_SERVICE_CHECK'
+        require(role in checks, 'No successful service check: ' + service)
     print('Verified Ambari INSTALL tasks, started daemons, offline release RPMs and service checks on', len(nodes), 'hosts')
 
 

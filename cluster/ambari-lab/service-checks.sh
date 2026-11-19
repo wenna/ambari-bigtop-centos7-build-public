@@ -3,7 +3,9 @@ set -euo pipefail
 api=http://localhost:8080/api/v1/clusters/lab/requests
 client=(curl -fsS --max-time 30 --globoff --netrc-file /root/test.netrc -H 'X-Requested-By: ambari-lab' -H 'Content-Type: application/json')
 for service in ZOOKEEPER HDFS YARN MAPREDUCE2 TEZ HIVE SPARK; do
-  payload=$(printf '{"RequestInfo":{"context":"Acceptance check: %s","command":"%s_SERVICE_CHECK"},"Requests/resource_filters":[{"service_name":"%s"}]}' "$service" "$service" "$service")
+  command="${service}_SERVICE_CHECK"
+  if [[ $service == ZOOKEEPER ]]; then command=ZOOKEEPER_QUORUM_SERVICE_CHECK; fi
+  payload=$(printf '{"RequestInfo":{"context":"Acceptance check: %s","command":"%s"},"Requests/resource_filters":[{"service_name":"%s"}]}' "$service" "$command" "$service")
   rid=$("${client[@]}" -d "$payload" "$api" | python3 -c 'import json,sys; print(int(json.load(sys.stdin)["Requests"]["id"]))')
   deadline=$((SECONDS + 600))
   while ((SECONDS < deadline)); do
