@@ -1,0 +1,43 @@
+name: Provision BIGTOP through Ambari on fresh EL7 agents
+on: workflow_dispatch
+permissions:
+  contents: write # The pinned release assets are drafts.
+jobs:
+  provision:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      AGENT_COUNT: '3'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Reserve disk for three independent Docker writable layers
+        if: ${{ runner.environment == 'github-hosted' }}
+        run: |
+          sudo rm -rf -- /usr/local/lib/android/sdk
+          df -h "$GITHUB_WORKSPACE" /var/lib/docker
+      - name: Fetch and verify the frozen EL7 repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash cluster/archive-input.sh
+          gh release download el7-runtime-44273252473 -p el7-runtime.tar
+          sha256sum -c manifests/runtime-44273252473.sha256
+          tar xf el7-runtime.tar && rm el7-runtime.tar
+          sha256sum --quiet -c manifests/runtime-SHA256SUMS
+      - name: Start PostgreSQL and register three real CentOS 7 agents
+        run: bash cluster/check-management-installer.sh
+      - name: Submit the HA topology to the running Ambari Server
+        run: bash cluster/ambari-lab/run.sh
+      - name: Capture bounded task and host evidence
+        if: ${{ always() }}
+        run: bash cluster/ambari-lab/diagnostics.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ always() }}
+        with:
+          name: ambari-provision-${{ github.run_attempt }}
+          path: |
+            management-evidence/hosts.json
+            provision-evidence/
+          retention-days: 5

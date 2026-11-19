@@ -96,8 +96,9 @@ class Controller:
         raise ValueError('Time limit reached; monitor Ambari ' + path)
 
     def verify(self, bp, topology):
-        groups = {g['name']: [c['name'] for c in g['components']] for g in bp['host_groups']}
-        expected = {(h['fqdn'], c) for g in topology['host_groups'] for h in g['hosts'] for c in groups[g['name']]}
+        groups = {g['name']: g['components'] for g in bp['host_groups']}
+        expected = {(h['fqdn'], c['name']): c.get('provision_action') for g in topology['host_groups']
+                    for h in g['hosts'] for c in groups[g['name']]}
         components = self.api(self.cluster + '/components?fields=ServiceComponentInfo/category')['items']
         clients = {c['ServiceComponentInfo']['component_name'] for c in components
                    if c['ServiceComponentInfo']['category'] == 'CLIENT'}
@@ -106,7 +107,7 @@ class Controller:
         bad = []
         for key in sorted(expected):
             r = actual.get(key, {})
-            if r.get('state') != ('INSTALLED' if key[1] in clients else 'STARTED'):
+            if r.get('state') != ('INSTALLED' if key[1] in clients or expected[key] == 'INSTALL_ONLY' else 'STARTED'):
                 bad.append('{}:{}={}'.format(*key, r.get('state', 'MISSING')))
         require(not bad, 'Components not ready: ' + ', '.join(bad))
         print('Verified {} Ambari-managed host components'.format(len(expected)), flush=True)

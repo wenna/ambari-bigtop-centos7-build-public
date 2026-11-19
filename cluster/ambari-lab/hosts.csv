@@ -1,0 +1,4 @@
+slot,fqdn,rack,roles
+bd01,bd01.lab.test,rack-a,ambari-server namenode zkfc journalnode zookeeper datanode resourcemanager
+bd02,bd02.lab.test,rack-b,namenode zkfc journalnode zookeeper datanode resourcemanager nodemanager
+bd03,bd03.lab.test,rack-c,journalnode zookeeper datanode nodemanager jobhistory metastore hiveserver2 sparkhistory
