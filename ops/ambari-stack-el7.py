@@ -89,6 +89,48 @@ def apply(root):
     if env.read_bytes() not in (original, new):
         raise ValueError('Existing site changes in ' + str(env))
     updates.append((env, original, new, backup))
+    # Hive RunJar can load jars in Hive's own lib directory ahead of HADOOP_CLASSPATH.
+    # Keep the RPM filenames (and dependency checks) while installing the approved driver bytes.
+    path = root / '3.2.0/services/HIVE/package/scripts/hive.py'
+    backup = path.with_name('hive.py.original-el7')
+    original = backup.read_bytes() if backup.exists() else path.read_bytes()
+    marker = b'  if name != "client":\n    setup_non_client()'
+    if original.count(marker) != 1:
+        raise ValueError('Unexpected upstream Hive configure function')
+    jdbc = b'''  if params.hive_jdbc_driver == "org.postgresql.Driver":
+    import hashlib
+    import shutil
+    import tempfile
+
+    approved = "/opt/cluster/postgresql.jar"
+    with open(approved, "rb") as driver:
+      digest = hashlib.sha256(driver.read()).hexdigest()
+    if digest != "157963d60ae66d607e09466e8c0cdf8087e9cb20d0159899ffca96bca2528460":
+      raise ValueError("Unexpected PostgreSQL JDBC driver digest")
+    lib = "/usr/bigtop/3.3.0/usr/lib/hive/lib"
+    targets = set(glob.glob(os.path.join(lib, "postgresql*.jar")))
+    targets.add(os.path.join(lib, "postgresql.jar"))
+    for target in sorted(targets):
+      if os.path.isfile(target):
+        with open(target, "rb") as jar:
+          if hashlib.sha256(jar.read()).hexdigest() == digest:
+            continue
+      fd, temp = tempfile.mkstemp(dir=lib)
+      try:
+        with os.fdopen(fd, "wb") as dst, open(approved, "rb") as src:
+          shutil.copyfileobj(src, dst)
+        os.chmod(temp, 0o644)
+        os.replace(temp, target)
+      finally:
+        if os.path.exists(temp):
+          os.unlink(temp)
+      Logger.info("Configured pgJDBC 42.7.7 at " + target)
+
+'''
+    new = original.replace(marker, jdbc + marker)
+    if path.read_bytes() not in (original, new):
+        raise ValueError('Existing site changes in ' + str(path))
+    updates.append((path, original, new, backup))
     for path, old, new, backup in updates:
         if path.read_bytes() == new:
             continue

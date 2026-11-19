@@ -88,6 +88,12 @@ path.write_text(json.dumps(template))
 HEAPS
 args=(http://localhost:8080 /root/test.netrc lab labbp /root/lab/generated/blueprint.json /root/lab/generated/cluster.json "$repo/app/")
 docker exec "$server" bash /root/lab/ops/ambari-provision.sh "${args[@]}" --timeout 4200
+docker exec -u hive bd03.lab.test bash -c '
+  set -o pipefail
+  export HADOOP_OPTS="${HADOOP_OPTS:-} -verbose:class"
+  /usr/bigtop/3.3.0/usr/lib/hive/bin/schematool -dbType postgres -info 2>&1 |
+    awk "/Loaded org.postgresql.Driver from/ { print; seen=1 } END { exit !seen }"
+' | tee provision-evidence/hive-jdbc-class-source.txt
 docker exec "$server" bash /root/lab/ops/ambari-provision.sh "${args[@]}" --check
 docker cp "$lab/service-checks.sh" "$server:/root/lab/service-checks.sh"
 docker exec "$server" bash /root/lab/service-checks.sh
