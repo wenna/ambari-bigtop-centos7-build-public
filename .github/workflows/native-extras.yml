@@ -1,0 +1,29 @@
+name: Freeze signed OS dependencies of the Ambari stack hooks
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Resolve and verify signed EL7 RPMs
+        run: |
+          mkdir native-extras
+          docker run --rm -v "$PWD/native-extras:/out" centos@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 bash -se <<'SH'
+          set -o pipefail
+          for r in os updates; do printf '[el7-%s]\nname=EL7\nbaseurl=https://vault.centos.org/7.9.2009/%s/$basearch/\ngpgcheck=1\ngpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7\n' "$r" "$r" > "/etc/yum.repos.d/el7-$r.repo"; done
+          yum -y --disablerepo='*' --enablerepo=el7-os,el7-updates install yum-utils createrepo
+          cd /out
+          yumdownloader --disablerepo='*' --enablerepo=el7-os,el7-updates unzip snappy snappy-devel libtirpc-devel
+          for f in *.rpm; do rpmkeys -Kv "$f" | grep -Ei 'RSA/.*Signature.*: OK$'; done
+          createrepo -q .
+          rpm -qp --qf '%{NAME}\t%{VERSION}-%{RELEASE}.%{ARCH}\n' *.rpm > VERSIONS.tsv
+          SH
+          tar czf native-el7-extras.tar.gz native-extras
+          sha256sum native-el7-extras.tar.gz > native-extras.sha256
+      - name: Retain signed dependencies in a draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "el7-native-extras-$GITHUB_RUN_ID" --draft --target "$GITHUB_SHA" --title "EL7 Ambari stack hook dependencies" --notes 'CentOS 7 signed runtime packages required by the Ambari-driven installation.' native-el7-extras.tar.gz native-extras.sha256 native-extras/VERSIONS.tsv
