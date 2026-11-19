@@ -45,6 +45,10 @@ def generate(rows, site, name, password=None):
         common['tez-site'] = read_properties(sample / 'tez/conf/tez-site.xml')
         common['hive-site'] = read_properties(sample / 'hive/conf/hive-site.xml')
 
+    # Bound the sort buffers to the task heap on smaller workers.
+    sort_mb = str(min(256, site['task_memory_mb'] // 8))
+    common['mapred-site']['mapreduce.task.io.sort.mb'] = sort_mb
+    common['tez-site']['tez.runtime.io.sort.mb'] = sort_mb
     common['core-site']['net.topology.script.file.name'] = '/etc/hadoop/conf/topology_script.py'
     hdfs, yarn, hive = (common[key] for key in ('hdfs-site', 'yarn-site', 'hive-site'))
     for values, keys in ((hdfs, ('dfs.ha.namenode.id', 'dfs.datanode.hostname')),

@@ -108,7 +108,7 @@ def apply(root):
     if digest != "157963d60ae66d607e09466e8c0cdf8087e9cb20d0159899ffca96bca2528460":
       raise ValueError("Unexpected PostgreSQL JDBC driver digest")
     lib = "/usr/bigtop/3.3.0/usr/lib/hive/lib"
-    targets = set(glob.glob(os.path.join(lib, "postgresql*.jar")))
+    targets = set(glob.glob(os.path.join(lib, "postgresql-[0-9]*.jar")))
     targets.add(os.path.join(lib, "postgresql.jar"))
     for target in sorted(targets):
       if os.path.isfile(target):
