@@ -23,13 +23,15 @@ docker start -a mgmt-install
 [[ $(docker inspect -f '{{.State.ExitCode}}' mgmt-install) == 0 ]]
 docker commit mgmt-install el7-ambari:installer >/dev/null
 hosts=()
-for n in {1..10}; do
+count=${AGENT_COUNT:-10}
+[[ $count =~ ^[1-9][0-9]*$ ]]
+for ((n=1; n<=count; n++)); do
   printf -v host 'bd%02d.lab.test' "$n"
   hosts+=("$host")
   docker run -d --init --name "$host" --hostname "$host" --network mgmt-net -v "$PWD/ops:/kit/ops:ro" -v "$PWD/runtimes:/kit/runtimes:ro" \
     -v "$PWD/lab-jdk17:/opt/jdk17:ro" -v "$PWD/runtimes/postgresql.jar:/opt/cluster/postgresql.jar:ro" -v "$PWD/certs:/etc/pki/bigtop:ro" el7-ambari:installer sleep infinity
 done
-server=bd09.lab.test
+server=${hosts[0]}
 printf '%s\n' "$password" | docker exec -i "$server" bash -c 'umask 077; cat > /root/pg.pass'
 docker exec "$server" bash -c 'umask 077; echo "machine localhost login admin password admin" > /root/test.netrc'
 for pass in 1 2; do
@@ -37,5 +39,5 @@ for pass in 1 2; do
   for host in "${hosts[@]}"; do docker exec "$host" bash /kit/ops/manage-server.sh agent "$server"; done
   docker exec "$server" bash /kit/ops/manage-server.sh verify http://localhost:8080 /root/test.netrc "${hosts[@]}"
 done
-docker exec "$server" curl -fsS --netrc-file /root/test.netrc 'http://localhost:8080/api/v1/hosts?fields=Hosts/host_state' > management-evidence/ten-hosts.json
-jq -e '(.items|length)==10 and all(.items[]; .Hosts.host_state=="HEALTHY")' management-evidence/ten-hosts.json
+docker exec "$server" curl -fsS --netrc-file /root/test.netrc 'http://localhost:8080/api/v1/hosts?fields=Hosts/host_state' > management-evidence/hosts.json
+jq -e --argjson count "$count" '(.items|length)==$count and all(.items[]; .Hosts.host_state=="HEALTHY")' management-evidence/hosts.json

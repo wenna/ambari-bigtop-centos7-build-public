@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Invoked by deploy-cluster.sh as root on bd09 or on one of the ten agents.
+# Invoked by deploy-cluster.sh as root on the management host or any agent.
 set -euo pipefail
 umask 077
 [[ $EUID == 0 ]]
@@ -80,6 +80,7 @@ PY
     ;;
 verify)
     base=$2 netrc=$3; shift 3
+    (( $# > 0 ))
     [[ $base == http://localhost:8080 || $base == https://* ]]
     private_file "$netrc"
     response=$(mktemp); trap 'rm -f "$response"' EXIT
@@ -92,7 +93,7 @@ with open(sys.argv[1]) as f:
 sys.exit(0 if {h["host_name"] for h in entries if h["host_state"] == "HEALTHY"} == set(sys.argv[2:])
          and len(entries) == len(sys.argv[2:]) else 1)
 PY
-        then echo "All ten Ambari hosts HEALTHY"; exit 0; fi
+        then echo "All $# inventory hosts HEALTHY"; exit 0; fi
         sleep 3
     done
     cat "$response" >&2; exit 1

@@ -1,11 +1,17 @@
-name: Use the operator management installer with ten agents and TLS PostgreSQL
+name: Verify 20 and 100 agents with the offline management installer
 on: workflow_dispatch
 permissions:
   contents: write
 jobs:
   operator:
+    strategy:
+      fail-fast: false
+      matrix:
+        count: [20, 100]
+    env:
+      AGENT_COUNT: ${{ matrix.count }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -22,10 +28,10 @@ jobs:
       - if: failure()
         run: |
           docker logs --tail 12 mgmt-db || true
-          docker exec bd09.lab.test tail -n 40 /var/log/ambari-server/ambari-server.out || true
+          docker exec bd01.lab.test tail -n 40 /var/log/ambari-server/ambari-server.out || true
           docker exec bd01.lab.test tail -n 20 /var/log/ambari-agent/ambari-agent.log || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: ten-agent-management
-          path: management-evidence/ten-hosts.json
+          name: management-${{ matrix.count }}
+          path: management-evidence/hosts.json
           retention-days: 3
