@@ -7,6 +7,7 @@ diagnostics() {
   for id in $(api '/clusters/zk/requests' | jq -r '.items[]?.Requests.id'); do
     api "/clusters/zk/requests/$id/tasks?fields=Tasks/status,Tasks/role,Tasks/command,Tasks/stderr" | jq -r '.items[]?.Tasks | select(.status=="FAILED" or .status=="HOLDING_FAILED") | [.role,.command,(.stderr[-2500:])] | @tsv' | tail -6
   done
+  docker exec "$server" bash -c 'namei -l /usr/bigtop/current/zookeeper-server/bin/zkServer.sh; rpm -qf /usr/bigtop/current/zookeeper-server/bin/zkServer.sh; ls -ld /usr/bigtop/{current,3.3.0}' || true
   docker exec "$server" bash -c 'tail -120 /var/log/ambari-server/ambari-server.log' | tail -60
 }
 trap 'if [[ $? != 0 ]]; then diagnostics; fi' EXIT

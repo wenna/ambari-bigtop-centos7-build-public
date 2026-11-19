@@ -58,7 +58,7 @@ PY
     fi
     grep -Fxq "server.jdbc.url=$url" "$props"
     grep -Fxq "server.jdbc.rca.url=$url" "$props"
-    if ! ambari-server status >/dev/null 2>&1; then ambari-server start; fi
+    if ! ambari-server status >/dev/null 2>&1; then (umask 022; ambari-server start); fi
     ;;
 agent)
     target=$2
@@ -76,7 +76,7 @@ PY
         }
         ambari-agent reset "$target"
     fi
-    if ! ambari-agent status >/dev/null 2>&1; then ambari-agent start; fi
+    if ! ambari-agent status >/dev/null 2>&1; then (umask 022; ambari-agent start); fi
     ;;
 verify)
     base=$2 netrc=$3; shift 3
