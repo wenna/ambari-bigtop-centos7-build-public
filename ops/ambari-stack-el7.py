@@ -77,6 +77,18 @@ def apply(root):
     if path.read_bytes() not in (original, updated):
         raise ValueError('Existing site changes in ' + str(path))
     updates.append((path, original, updated, backup))
+    env = root / '3.2.0/services/HIVE/configuration/hive-env.xml'
+    backup = env.with_name('hive-env.xml.original-el7')
+    original = backup.read_bytes() if backup.exists() else env.read_bytes()
+    tree = ET.fromstring(original)
+    value = tree.find("./property[name='content']/value")
+    if value is None:
+        raise ValueError('Hive environment template missing')
+    value.text = (value.text or '') + '\nexport HADOOP_CLASSPATH="/opt/cluster/postgresql.jar:${HADOOP_CLASSPATH:-}"\nexport HADOOP_USER_CLASSPATH_FIRST=true\n'
+    new = ET.tostring(tree, encoding='utf-8')
+    if env.read_bytes() not in (original, new):
+        raise ValueError('Existing site changes in ' + str(env))
+    updates.append((env, original, new, backup))
     for path, old, new, backup in updates:
         if path.read_bytes() == new:
             continue
