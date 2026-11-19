@@ -103,6 +103,8 @@ for host in "${hosts[@]}"; do
 done
 bash "$lab/diagnostics.sh"
 python3 "$lab/verify.py" "$lab/hosts.csv" provision-evidence || check_status=$?
+docker cp "$lab/failover.sh" "$server:/root/lab/failover.sh"
+docker exec "$server" bash /root/lab/failover.sh | tee provision-evidence/failover.log || check_status=1
 gateway=bd03.lab.test
 docker exec "$gateway" install -d -m 0755 /tmp/ambari-workload
 for source in ops/smoke-yarn.sh cluster/compute/ComputeCheck.java "$lab/workloads.sh"; do
