@@ -120,6 +120,9 @@ if [[ $stage == ambari ]]; then
         remote "$host" bash "$KIT_ROOT/cluster/provision-node.sh" "$KIT_ROOT" --ambari-only "$role"
     done
 fi
+if [[ $stage == ambari ]]; then
+    remote "$AMBARI_FQDN" python3 "$KIT_ROOT/ops/ambari-stack-el7.py"
+fi
 if [[ $stage == management || $stage == ambari || $stage == all ]]; then
     remote "$AMBARI_FQDN" bash "$KIT_ROOT/ops/manage-server.sh" setup "$KIT_ROOT" "$PG_HOST" "$PG_PORT" "$PG_DATABASE" "$PG_USER" "$PG_PASSWORD_FILE" "$PG_CA"
     for host in "${hosts[@]}"; do

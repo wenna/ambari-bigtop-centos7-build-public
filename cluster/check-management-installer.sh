@@ -34,6 +34,7 @@ done
 server=${hosts[0]}
 printf '%s\n' "$password" | docker exec -i "$server" bash -c 'umask 077; cat > /root/pg.pass'
 docker exec "$server" bash -c 'umask 077; echo "machine localhost login admin password admin" > /root/test.netrc'
+if [[ ${NATIVE_STACK:-0} == 1 ]]; then docker exec "$server" python3 /kit/ops/ambari-stack-el7.py; fi
 for pass in 1 2; do
   docker exec "$server" bash /kit/ops/manage-server.sh setup /kit pg.lab.test 5432 ambari ambari /root/pg.pass /etc/pki/bigtop/ca.crt
   for host in "${hosts[@]}"; do docker exec "$host" bash /kit/ops/manage-server.sh agent "$server"; done
