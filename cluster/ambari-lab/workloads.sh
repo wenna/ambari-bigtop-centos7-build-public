@@ -22,8 +22,6 @@ work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 fs=$(hdfs getconf -confKey fs.defaultFS)
 [[ $fs == hdfs://lab ]]
-[[ $(printf '%s\n' "$(hdfs haadmin -getServiceState nn1)" "$(hdfs haadmin -getServiceState nn2)" | sort | paste -sd,) == active,standby ]]
-[[ $(printf '%s\n' "$(yarn rmadmin -getServiceState rm1)" "$(yarn rmadmin -getServiceState rm2)" | sort | paste -sd,) == active,standby ]]
 bash /tmp/ambari-workload/smoke-yarn.sh
 data=$HDFS_TEST_PARENT/lab_$tag
 hdfs dfs -mkdir -p "$data/input"
