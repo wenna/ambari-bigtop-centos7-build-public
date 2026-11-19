@@ -29,5 +29,14 @@ for host in bd01.lab.test bd02.lab.test bd03.lab.test; do
   docker exec "$host" rpm -qa --qf '%{NAME}\t%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "provision-evidence/$host-after.tsv" || true
   docker exec "$host" bash -c 'printf "Container init limits:\n"; grep -E "Max (open files|processes|core file size)" /proc/1/limits; if test -f /etc/security/limits.d/hdfs.conf; then grep -E "^[^#].*(nofile|nproc)" /etc/security/limits.d/hdfs.conf; su hdfs -l -s /bin/bash -c '\''grep -E "Max (open files|processes|core file size)" /proc/self/limits'\''; fi' > "provision-evidence/$host-limits.txt" 2>&1 || true
 done
+# Capture class origin even if the schema command failed. Keep stdout free of connection credentials.
+docker exec -u hive bd03.lab.test bash -c '
+  export HADOOP_OPTS="${HADOOP_OPTS:-} -verbose:class"
+  timeout 40 /usr/bigtop/3.3.0/usr/lib/hive/bin/schematool -dbType postgres -info 2>&1 |
+    awk "/Loaded org.postgresql.Driver from/ {print}"
+' > provision-evidence/hive-diagnostic-class-source.txt || true
+docker exec bd03.lab.test bash -c '
+  find -L /usr/bigtop/3.3.0/usr/lib -iname "*postgres*.jar" -type f -exec sha256sum {} + 2>/dev/null
+' > provision-evidence/postgresql-jars.txt || true
 docker exec "$server" tail -n 160 /var/log/ambari-server/ambari-server.log 2>/dev/null |
   grep -Ei 'WARN|ERROR|Exception' | redact > provision-evidence/server-errors.txt || true
