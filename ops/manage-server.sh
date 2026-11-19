@@ -38,7 +38,7 @@ setup)
     fi
     if [[ ! -e $state/configured.id ]]; then
         ambari-server setup --jdbc-db=postgres --jdbc-driver=/opt/cluster/postgresql.jar
-        ambari-server setup -s --java-home=/opt/jdk17 --ambari-java-home=/opt/jdk17 \
+        ambari-server setup -s --java-home=/usr/lib/jvm/java-1.8.0-openjdk --ambari-java-home=/opt/jdk17 \
           --stack-java-home=/usr/lib/jvm/java-1.8.0-openjdk --database=postgres \
           --databasehost="$host" --databaseport="$port" --databasename="$db" \
           --databaseusername="$user" --databasepassword="$password" --postgresschema=public
