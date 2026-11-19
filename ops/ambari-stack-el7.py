@@ -64,6 +64,19 @@ def changes(root):
 
 def apply(root):
     updates = list(changes(root))
+    # 3.3 inherits this script. An installed-only ATS role has no daemon to create its HDFS directories.
+    path = root / '3.2.0/services/YARN/package/scripts/resourcemanager.py'
+    backup = path.with_name('resourcemanager.py.original-el7')
+    original = backup.read_bytes() if backup.exists() else path.read_bytes()
+    guard = b'    if params.has_ats:\n      Logger.info('
+    if original.count(guard) != 1:
+        raise ValueError('Unexpected upstream ATS check in ' + str(path))
+    replacement = (b'    if params.has_ats and str(params.config["configurations"]["yarn-site"].get('
+                   b'"yarn.timeline-service.enabled", "true")).lower() == "true":\n      Logger.info(')
+    updated = original.replace(guard, replacement)
+    if path.read_bytes() not in (original, updated):
+        raise ValueError('Existing site changes in ' + str(path))
+    updates.append((path, original, updated, backup))
     for path, old, new, backup in updates:
         if path.read_bytes() == new:
             continue
