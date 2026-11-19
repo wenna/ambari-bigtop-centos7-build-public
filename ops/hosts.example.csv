@@ -1,11 +1,11 @@
-slot,fqdn,rack
-bd01,bd01.prod.example.internal,rack-a
-bd02,bd02.prod.example.internal,rack-b
-bd03,bd03.prod.example.internal,rack-c
-bd04,bd04.prod.example.internal,rack-a
-bd05,bd05.prod.example.internal,rack-b
-bd06,bd06.prod.example.internal,rack-c
-bd07,bd07.prod.example.internal,rack-a
-bd08,bd08.prod.example.internal,rack-b
-bd09,bd09.prod.example.internal,rack-a
-bd10,bd10.prod.example.internal,rack-b
+slot,fqdn,rack,roles
+bd01,bd01.prod.example.internal,rack-a,namenode zkfc journalnode zookeeper
+bd02,bd02.prod.example.internal,rack-b,namenode zkfc journalnode zookeeper resourcemanager
+bd03,bd03.prod.example.internal,rack-c,journalnode zookeeper resourcemanager jobhistory
+bd04,bd04.prod.example.internal,rack-a,datanode nodemanager
+bd05,bd05.prod.example.internal,rack-b,datanode nodemanager
+bd06,bd06.prod.example.internal,rack-c,datanode nodemanager
+bd07,bd07.prod.example.internal,rack-a,datanode nodemanager
+bd08,bd08.prod.example.internal,rack-b,datanode nodemanager
+bd09,bd09.prod.example.internal,rack-a,metastore hiveserver2 ambari-server
+bd10,bd10.prod.example.internal,rack-b,metastore hiveserver2 sparkhistory

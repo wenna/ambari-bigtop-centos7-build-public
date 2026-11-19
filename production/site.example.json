@@ -5,6 +5,7 @@
   "nm_local_dirs": ["/disk1/yarn/local", "/disk2/yarn/local"],
   "log_dir": "/var/log/bigtop",
   "run_dir": "/run/bigtop",
+  "fence_port": 22,
   "fence_user": "hdfs",
   "fence_key": "/etc/security/hadoop/fencing/id_rsa",
   "pg_url": "jdbc:postgresql://pg-writer.prod.example.internal:5432/hive?sslmode=verify-full&sslrootcert=/etc/pki/hive/pg-ca.crt",
@@ -14,6 +15,7 @@
   "proxy_groups": ["analytics"],
   "nm_memory_mb": 32768,
   "nm_vcores": 12,
+  "node_overrides": {},
   "task_memory_mb": 2048,
   "accounts": {"hdfs": "hdfs", "yarn": "yarn", "mapred": "mapred", "hive": "hive", "spark": "spark", "zookeeper": "zookeeper"}
 }

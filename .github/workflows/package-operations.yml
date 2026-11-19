@@ -14,6 +14,12 @@ on:
         description: Successful offline-management verification run ID
         type: string
         required: true
+      scale_management:
+        description: Successful 20 and 100 agent verification run ID
+        type: string
+        required: true
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
 permissions:
   contents: write
   actions: read
@@ -31,13 +37,18 @@ jobs:
           ACCEPTANCE: ${{ inputs.acceptance }}
           RUNTIME: ${{ inputs.runtime }}
           MANAGEMENT: ${{ inputs.management }}
+          SCALE: ${{ inputs.scale_management }}
         run: |
-          [[ "$ACCEPTANCE" =~ ^[0-9]+$ && "$RUNTIME" =~ ^[0-9]+$ && "$MANAGEMENT" =~ ^[0-9]+$ ]]
+          [[ "$ACCEPTANCE" =~ ^[0-9]+$ && "$RUNTIME" =~ ^[0-9]+$ && "$MANAGEMENT" =~ ^[0-9]+$ && "$SCALE" =~ ^[0-9]+$ ]]
           mkdir -p kit/evidence
-          for item in "$ACCEPTANCE:test-cluster" "$RUNTIME:offline-runtime" "$MANAGEMENT:offline-management"; do
+          for item in "$ACCEPTANCE:test-cluster" "$RUNTIME:offline-runtime" "$MANAGEMENT:offline-management" "$SCALE:test-management-installer"; do
             id=${item%:*}; workflow=${item#*:}
             gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id" > "kit/evidence/$workflow.json"
             jq -e --arg path ".github/workflows/$workflow.yml" '.conclusion=="success" and .head_branch=="main" and .path==$path' "kit/evidence/$workflow.json"
+          done
+          for count in 20 100; do
+            gh run download "$SCALE" -n "management-$count" -D "kit/evidence/agents-$count"
+            jq -e --argjson n "$count" '(.items|length)==$n and ([.items[].Hosts.host_name]|unique|length)==$n and all(.items[]; .Hosts.host_state=="HEALTHY")' "kit/evidence/agents-$count/hosts.json"
           done
           gh run download "$ACCEPTANCE" -n cluster-evidence -D kit/evidence/cluster
           gh run download "$MANAGEMENT" -n offline-management -D kit/evidence/management
@@ -69,7 +80,15 @@ jobs:
           rm el7-runtime.tar
           mv yum-staging kit/
           cp -a ops kit/
-          python3 production/check.py
+          set -o pipefail
+          python3 -m unittest discover -s tests
+          bash tests/test_os_preflight.sh | tee kit/evidence/os-preflight.txt
+          python3 production/check.py | tee kit/evidence/configurations.txt
+          for count in 20 100; do
+            python3 ops/generate-inventory.py --nodes "$count" --domain site.example > "$RUNNER_TEMP/hosts-$count.csv"
+            bash production/start-cluster.sh --action plan --inventory "$RUNNER_TEMP/hosts-$count.csv" --site production/site.example.json --snapshot "$RUNNER_TEMP/plan-$count" > "kit/evidence/plan-$count.txt"
+            jq -e --argjson n "$count" 'length==$n' "$RUNNER_TEMP/plan-$count/plan.json"
+          done
           bash production/start-cluster.sh --action plan --inventory ops/hosts.example.csv --site production/site.example.json --snapshot "$RUNNER_TEMP/operator-plan"
           cp -a production kit/
           mkdir -p kit/cluster

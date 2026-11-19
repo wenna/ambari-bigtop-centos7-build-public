@@ -2,32 +2,62 @@
 # Orchestration host: bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env STAGE
 set -euo pipefail
 config=$(realpath "${1:?provide trusted site.env}")
-stage=${2:?choose preflight, packages, management, data or all}
+stage=${2:?choose prepare, time-packages, preflight, packages, management, data or all}
 source "$config"
 here=$(cd "$(dirname "$0")/.." && pwd)
-case $stage in preflight|packages|management|data|all) ;; *) exit 64 ;; esac
+case $stage in prepare|time-packages|preflight|packages|management|data|all) ;; *) exit 64 ;; esac
+[[ ${PREPARE_OS:-0} =~ ^[01]$ ]] || { echo "PREPARE_OS must be 0 or 1" >&2; exit 64; }
 [[ $SSH_USER =~ ^[a-z_][a-z0-9_-]*$ && $KIT_ROOT =~ ^/[-a-zA-Z0-9_./]+$ ]]
 [[ $MANIFEST_SHA256 =~ ^[[:xdigit:]]{64}$ ]]
 python3 "$here/production/render.py" --inventory "$INVENTORY" --site "$DATA_SITE" --out "$SNAPSHOT"
-mapfile -t hosts < <(python3 - "$SNAPSHOT/plan.json" <<'PY'
+targets=$(python3 - "$SNAPSHOT/plan.json" <<'PY'
 import json, sys
 with open(sys.argv[1]) as f:
     plan = json.load(f)
+if sum("ambari-server" in node["roles"] for node in plan.values()) != 1:
+    sys.exit("Inventory must contain exactly one ambari-server host")
 for slot in sorted(plan):
-    print(plan[slot]["fqdn"])
+    node = plan[slot]
+    record = " ".join([node["fqdn"]] + node["roles"])
+    sys.stdout.buffer.write((record + "\n").encode("ascii"))
 PY
 )
-[[ ${#hosts[@]} == 10 && ${hosts[8]} == "$AMBARI_FQDN" ]]
-ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10)
+hosts=()
+declare -A host_roles
+while read -r host roles; do
+    hosts+=("$host")
+    host_roles[$host]=$roles
+    if [[ " $roles " == *" ambari-server "* ]]; then
+        [[ -z ${AMBARI_FQDN:-} || $AMBARI_FQDN == "$host" ]] || {
+            echo "AMBARI_FQDN differs from the ambari-server inventory role" >&2; exit 64;
+        }
+        AMBARI_FQDN=$host
+    fi
+done <<< "$targets"
+SSH_PORT=${SSH_PORT:-22}
+SSH_IDENTITY_FILE=${SSH_IDENTITY_FILE:-}
+SSH_KNOWN_HOSTS=${SSH_KNOWN_HOSTS:-}
+[[ $SSH_PORT =~ ^[1-9][0-9]{0,4}$ ]] && (( SSH_PORT <= 65535 )) || exit 64
+ssh_opts=(-p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10)
+if [[ -n $SSH_IDENTITY_FILE ]]; then
+    test -r "$SSH_IDENTITY_FILE"
+    ssh_opts+=(-o IdentitiesOnly=yes -i "$SSH_IDENTITY_FILE")
+fi
+if [[ -n $SSH_KNOWN_HOSTS ]]; then
+    test -r "$SSH_KNOWN_HOSTS"
+    ssh_opts+=(-o "UserKnownHostsFile=$SSH_KNOWN_HOSTS")
+fi
 remote() {
     local host=$1 command
     shift
     printf -v command '%q ' "$@"
     ssh "${ssh_opts[@]}" "$SSH_USER@$host" "sudo -n -- $command"
 }
-for i in "${!hosts[@]}"; do
-    host=${hosts[i]}
-    printf -v slot 'bd%02d' "$((i+1))"
+if [[ $stage == prepare || ( $stage == all && ${PREPARE_OS:-0} == 1 ) ]]; then
+    source "$here/ops/prepare-hosts.sh"
+    prepare_hosts
+fi
+for host in "${hosts[@]}"; do
     remote "$host" bash -s -- "$KIT_ROOT" "$MANIFEST_SHA256" "$host" "${hosts[@]}" <<'CHECK'
 set -euo pipefail
 cd "$1"
@@ -36,13 +66,31 @@ grep -Fq 'CentOS Linux release 7.9.2009' /etc/centos-release
 printf '%s  SHA256SUMS\n' "$2" | sha256sum -c -
 sha256sum --quiet -c SHA256SUMS
 shift 3
-for fqdn; do getent ahostsv4 "$fqdn" >/dev/null; done
+for fqdn; do getent ahosts "$fqdn" >/dev/null; done
 CHECK
 done
+if [[ $stage == time-packages ]]; then
+    for host in "${hosts[@]}"; do
+        remote "$host" bash "$KIT_ROOT/cluster/provision-node.sh" "$KIT_ROOT" --chrony-only
+    done
+    exit 0
+fi
+read -r -a sources <<< "${NTP_SOURCES:?provide approved NTP addresses or names, separated by spaces}"
+for host in "${hosts[@]}"; do
+    mounts=${REQUIRED_MOUNTS:-/}
+    roles=" ${host_roles[$host]} "
+    if [[ $roles == *" datanode "* || $roles == *" nodemanager "* ]]; then
+        mounts+=" ${WORKER_MOUNTS:-}"
+    fi
+    read -r -a paths <<< "$mounts"
+    remote "$host" bash "$KIT_ROOT/ops/check-node.sh" --os "$KIT_ROOT" "${MIN_FREE_MIB:-0}" "${paths[@]}"
+    remote "$host" bash "$KIT_ROOT/ops/check-node.sh" --time "${MAX_CLOCK_OFFSET_SECONDS:?provide the clock correction threshold}" "${sources[@]}"
+done
 if [[ $stage == packages || $stage == all ]]; then
-    for i in "${!hosts[@]}"; do
-        printf -v slot 'bd%02d' "$((i+1))"
-        remote "${hosts[i]}" bash "$KIT_ROOT/cluster/provision-node.sh" "$KIT_ROOT" "$slot"
+    for host in "${hosts[@]}"; do
+        # An inventory row with no daemons is a client/gateway.
+        read -r -a roles <<< "${host_roles[$host]:-client}"
+        remote "$host" bash "$KIT_ROOT/cluster/provision-node.sh" "$KIT_ROOT" "${roles[@]}"
     done
 fi
 if [[ $stage == management || $stage == all ]]; then
@@ -53,6 +101,6 @@ if [[ $stage == management || $stage == all ]]; then
     remote "$AMBARI_FQDN" bash "$KIT_ROOT/ops/manage-server.sh" verify "$API_BASE" "$API_NETRC" "${hosts[@]}"
 fi
 if [[ $stage == data || $stage == all ]]; then
-    export SSH_USER KIT_ROOT
+    export SSH_USER SSH_PORT SSH_IDENTITY_FILE SSH_KNOWN_HOSTS KIT_ROOT
     bash "$here/production/start-cluster.sh" --inventory "$INVENTORY" --site "$DATA_SITE" --snapshot "$SNAPSHOT" --action apply
 fi

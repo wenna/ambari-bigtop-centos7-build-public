@@ -30,7 +30,7 @@ case "$1" in
   inspect)
     # Test all hosts before writing any service state. Refuse a different managed snapshot.
     [[ ! -e $state/snapshot || $(cat "$state/snapshot") == "$3" ]] || die "Changed snapshot on $FQDN; plan an explicit configuration migration"
-    for role in "${ROLES[@]}"; do
+    for role in ${ROLES[@]+"${ROLES[@]}"}; do
       user=$(owner "$role"); id "$user" >/dev/null
       [[ $(id -u "$user") != 0 ]] || die "Root service identities are disallowed"
       if [[ $4 == fresh ]]; then
@@ -63,13 +63,12 @@ case "$1" in
         esac
       fi
     done
-    if [[ $SLOT == bd0[12] ]]; then
+    if [[ -v OWNER_namenode ]]; then
       as_user "$HDFS_USER" test -r "$FENCE_KEY" || die "Fence key unavailable"
-      peer=${HOSTS[0]}; [[ $SLOT == bd02 ]] || peer=${HOSTS[1]}
       as_user "$HDFS_USER" ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 \
-        -i "$FENCE_KEY" "$FENCE_USER@$peer" 'command -v fuser && command -v nc' >/dev/null
+        -p "$FENCE_PORT" -i "$FENCE_KEY" "$FENCE_USER@$FENCE_PEER" 'command -v fuser && command -v nc' >/dev/null
     fi
-    if [[ $SLOT == bd09 || $SLOT == bd10 ]]; then
+    if [[ -v OWNER_metastore ]]; then
       for path in "$PG_CA" "$HMS_KEYSTORE" /opt/cluster/postgresql.jar; do as_user "$HIVE_USER" test -r "$path"; done
       [[ -f $HMS_KEYSTORE && $(stat -Lc %u "$HMS_KEYSTORE") == "$(id -u "$HIVE_USER")" ]] || die "Check Hive keystore ownership"
       (( (8#$(stat -Lc %a "$HMS_KEYSTORE") & 077) == 0 )) || die "Hive keystore must be private"
@@ -93,12 +92,12 @@ case "$1" in
     install -m 0755 "$stage/node-service.sh" "$here/node-service.sh"
     install -m 0644 "$stage/node.env" "$here/node.env"
     source /etc/hadoop/conf/bigtop-env.sh
-    if [[ $SLOT == bd09 || $SLOT == bd10 ]]; then
+    if [[ -v OWNER_metastore ]]; then
       "$JAVA_HOME/bin/javac" -cp "$HADOOP_HOME/*:$HADOOP_HOME/lib/*" -d "$here" "$stage/CatalogState.java"
     fi
     tmpfiles=/etc/tmpfiles.d/bigtop-production.conf
     : >"$tmpfiles"
-    for role in "${ROLES[@]}"; do
+    for role in ${ROLES[@]+"${ROLES[@]}"}; do
       user=$(owner "$role")
       install -d -o "$user" -m 0750 "$LOG_DIR/$user" "$RUN_DIR/$user"
       echo "d $RUN_DIR/$user 0750 $user - -" >>"$tmpfiles"

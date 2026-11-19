@@ -29,4 +29,4 @@ docker exec bigtop-catalog-db pg_isready
 docker exec -it bigtop-catalog-db psql -U postgres -d postgres
 ```
 
-在 psql 中按 ops/README.md 第 4 节创建 ambari 和 hive 数据库，使用 SCRAM 密码。正式节点连接地址设置为匹配证书的稳定域名，客户端使用 verify-full 和受信任 CA。生产主备复制、WAL 归档、PITR、故障切换和备份恢复由现场数据库方案提供。单实例容器只覆盖数据库启动与应用联通。
+在 psql 中按 ops/README.md 第 2 节创建 ambari 和 hive 数据库，使用 SCRAM 密码。正式节点连接地址设置为匹配证书的稳定域名，客户端使用 verify-full 和受信任 CA。生产主备复制、WAL 归档、PITR、故障切换和备份恢复由现场数据库方案提供。单实例容器只覆盖数据库启动与应用联通。

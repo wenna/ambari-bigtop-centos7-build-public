@@ -9,4 +9,4 @@ cat ambari-bigtop-el7.tar.part-* | tar xf - -C kit
 less kit/INSTALL.zh-CN.md
 ```
 
-应用仓库在 yum-staging/，系统依赖仓库在 runtime-repo/，双 JDK、数据库与 JDBC 的资料见 runtimes/、manifests/ 和手册。已验证的 RPM 版本见 runtime-versions.tsv，各应用 RPM 声明的依赖及版本约束见 application-rpm-requires.txt。将 ops/hosts.example.csv、ops/site.env.example 和 production/site.example.json 复制到站点配置目录，填写生产参数，按手册配置存储、凭据和 fencing。十节点入口为 `bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env all`。evidence/ 保存验收作业的原始记录。
+应用仓库在 yum-staging/，系统依赖仓库在 runtime-repo/，双 JDK、数据库与 JDBC 的资料见 runtimes/、manifests/ 和手册。已验证的 RPM 版本见 runtime-versions.tsv，各应用 RPM 声明的依赖及版本约束见 application-rpm-requires.txt。将 ops/hosts.example.csv、ops/site.env.example 和 production/site.example.json 复制到站点配置目录，填写生产参数，按手册配置存储、凭据和 fencing。主机清单按角色驱动，总节点数可变；20 台和 100 台可分别用 `python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal` 和 `--nodes 100` 生成起始清单。主机准备、免密 SSH、时钟同步和存储核验见 INSTALL.zh-CN.md。一键安装入口为 `bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env all`。evidence/ 保存验收作业的原始记录。
