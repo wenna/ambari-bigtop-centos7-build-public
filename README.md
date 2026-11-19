@@ -1,6 +1,10 @@
 # Ambari 3.0.0 / Apache Bigtop 3.3.0 on CentOS 7.9 x86_64
 
-## 可变节点数的离线运维包
+## 通过 Ambari 安装 BIGTOP
+
+在新建 CentOS 7.9 x86_64 集群上，先部署 Ambari Server 和 Agent，再由 Ambari 下发各主机的服务安装与启动任务。[Ambari 原生安装手册](ops/AMBARI.zh-CN.md) · [候选包 el7-ambari-native-rc-44493966628](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-77893cbca8717a78808a)。[三节点 ZooKeeper 验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44493332536)已核对真实 RPM、三个服务实例和三个客户端。完整 HA 生态验收记录见 [Ambari 建群工作流](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/workflows/test-ambari-provision.yml)。生产投运前应核对所选交付版本的安装、启动、服务检查和作业验收结果。
+
+## 可变节点数的离线运维包（systemd 管理数据服务）
 
 面向新建 CentOS Linux 7.9.2009 x86_64 集群。每台服务器在清单中指定角色和机架，可按节点覆盖磁盘、内存与 vCore。当前草稿为 [el7-operations-44467569272](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-551c6355d1c8078330b1)。使用有草稿访问权的 GitHub 账号下载：
 

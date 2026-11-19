@@ -8,7 +8,7 @@
 sha256sum -c SHA256SUMS
 mkdir kit && cat ambari-native-el7.tar.part-* | tar xf - -C kit
 (cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS)
-``` 
+```
 
 ## 1. 准备主机和数据库
 
@@ -50,6 +50,10 @@ bash ops/ambari-provision.sh http://localhost:8080 "$s/ambari.netrc" prod prod-b
 ```
 
 蓝图依据 slot、机架、角色和容量生成主机映射。`blueprint.json` 可以审阅。`cluster.json` 包含 Hive 密码，请限制访问，勿上传到工单、Git 或日志。控制器向 Ambari 注册本地仓库版本、蓝图和集群，然后等待 Ambari 的请求完成。登录 Web UI，打开 **后台操作** 查看各主机的 INSTALL、START 和日志，再到 **Services** 查看 HDFS、YARN、MapReduce2、ZooKeeper、Hive、Tez、Spark。客户端组件通常为 `INSTALLED`，服务进程应为 `STARTED`。Timeline 的两个可选组件按蓝图只安装。
+
+### 使用 Ambari Web 向导
+
+如果由值班人员手工分配服务，可在管理面安装完成后登录 Ambari Web，选择 **Launch Install Wizard**，选择 BIGTOP 3.3.0，为 **redhat7** 设置内部应用仓库 URL。节点清单填写完整 FQDN，选择已手工注册 Agent，检查所有主机状态，再选择服务和主从节点、填写 Hive 外部 PostgreSQL 的 TLS JDBC 参数、复核挂载点后执行 **Install, Start and Test**。需要 HA 时，按界面提供的 NameNode 和 ResourceManager HA 流程设置两个主机、仲裁和 fencing。Web 向导的具体布局与蓝图是两种独立的建群路径，同一个新集群只提交一次。此处脚本验收走 Ambari API 蓝图路径。
 
 ## 4. 复查和恢复
 
