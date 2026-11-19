@@ -21,5 +21,6 @@ jobs:
           gh release download el7-runtime-44273252473 -p el7-runtime.tar
           sha256sum -c manifests/runtime-44273252473.sha256
           tar xf el7-runtime.tar && rm el7-runtime.tar
+          bash cluster/native-runtime.sh
       - run: bash cluster/check-management-installer.sh
       - run: bash cluster/native-zk-smoke.sh

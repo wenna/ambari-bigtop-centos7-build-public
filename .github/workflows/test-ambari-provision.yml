@@ -26,6 +26,7 @@ jobs:
           gh release download el7-runtime-44273252473 -p el7-runtime.tar
           sha256sum -c manifests/runtime-44273252473.sha256
           tar xf el7-runtime.tar && rm el7-runtime.tar
+          bash cluster/native-runtime.sh
           sha256sum --quiet -c manifests/runtime-SHA256SUMS
       - name: Start PostgreSQL and register three real CentOS 7 agents
         run: bash cluster/check-management-installer.sh
