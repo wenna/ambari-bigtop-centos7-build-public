@@ -1,6 +1,22 @@
 # Ambari 3.0.0 / Apache Bigtop 3.3.0 on CentOS 7.9 x86_64
 
-## 十节点离线运维包
+## 可变节点数的离线运维包
+
+面向新建 CentOS Linux 7.9.2009 x86_64 集群。每台服务器在清单中指定角色和机架，可按节点覆盖磁盘、内存与 vCore。当前草稿为 [el7-operations-44467569272](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-551c6355d1c8078330b1)。使用有草稿访问权的 GitHub 账号下载：
+
+```bash
+gh release download el7-operations-44467569272 -R wenna/ambari-bigtop-centos7-build-public -D delivery
+cd delivery
+sha256sum -c SHA256SUMS
+mkdir kit && cat ambari-bigtop-el7.tar.part-* | tar xf - -C kit
+(cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS)
+```
+
+按[现场操作手册](ops/README.md)准备 SSH、FQDN、时钟、磁盘、数据库和凭据，在 `hosts.csv`、`site.env`、`site.json` 填写站点值。从交付根目录运行 `bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env all`。两个离线 YUM 仓库含 60 个应用 RPM 和 283 个运行依赖 RPM，包内另附 JDK、PostgreSQL 镜像、JDBC 驱动、配置模板、构建源码快照及依赖清单。
+
+[20 和 100 个 Agent 容器的注册验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44455375014)覆盖重复初始化和全部主机 HEALTHY。[六容器数据服务验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44347128227)覆盖 HDFS fencing、YARN 在途作业切换、Hive on Tez 和 Spark on YARN。[本版打包记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44467569272)包含新清单和预检测试、两个分卷及其中每个文件的校验。现场仍需验证真实磁盘、网络、负载及故障域。
+
+## 历史版本（十节点离线运维包）
 
 [运维交付草稿 el7-operations-44349066611](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-aef804c2bcd10519bdf1) 包含两个 YUM 仓库、60 个应用 RPM、283 个运行依赖 RPM、JDK 17、pgJDBC、PostgreSQL 15 镜像、配置模板与部署脚本。两个分卷共 1,949,511,680 字节。登录有草稿访问权的账号下载所有附件：
 
@@ -11,7 +27,7 @@ mkdir kit && cat ambari-bigtop-el7.tar.part-* | tar xf - -C kit
 (cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS)
 ```
 
-现场入口为 `kit/INSTALL.zh-CN.md` 和 `kit/ops/deploy-cluster.sh`。[运维手册](ops/README.md)给出数据库、fencing 和十个节点的站点参数。[六容器验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44347128227)检查了 HDFS 隔离、运行中 MapReduce 作业跨 RM 切换、Hive on Tez、跨节点 Beeline 和 Spark on YARN。[十 Agent 与数据库 TLS 验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44340595879)使用运维脚本完成两遍初始化和注册核验。[发布工作流](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44349066611)逐文件校验最终分卷。
+现场入口为 `kit/INSTALL.zh-CN.md` 和 `kit/ops/deploy-cluster.sh`。该版本随包手册给出数据库、fencing 和十个节点的站点参数。[六容器验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44347128227)检查了 HDFS 隔离、运行中 MapReduce 作业跨 RM 切换、Hive on Tez、跨节点 Beeline 和 Spark on YARN。[十 Agent 与数据库 TLS 验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44340595879)使用运维脚本完成两遍初始化和注册核验。[发布工作流](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44349066611)逐文件校验最终分卷。
 
 ## 早期组件包与二次编译
 
