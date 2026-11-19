@@ -28,7 +28,7 @@ count=${AGENT_COUNT:-10}
 for ((n=1; n<=count; n++)); do
   printf -v host 'bd%02d.lab.test' "$n"
   hosts+=("$host")
-  docker run -d --init --name "$host" --hostname "$host" --network mgmt-net -v "$PWD/ops:/kit/ops:ro" -v "$PWD/runtimes:/kit/runtimes:ro" \
+  docker run -d --init --ulimit nofile=131072:131072 --ulimit nproc=131072:131072 --ulimit core=-1:-1 --name "$host" --hostname "$host" --network mgmt-net -v "$PWD/ops:/kit/ops:ro" -v "$PWD/runtimes:/kit/runtimes:ro" \
     -v "$PWD/lab-jdk17:/opt/jdk17:ro" -v "$PWD/runtimes/postgresql.jar:/opt/cluster/postgresql.jar:ro" -v "$PWD/certs:/etc/pki/bigtop:ro" el7-ambari:installer sleep infinity
 done
 server=${hosts[0]}
