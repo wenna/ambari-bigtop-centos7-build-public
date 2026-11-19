@@ -96,12 +96,13 @@ docker exec -u hive bd03.lab.test bash -c '
 ' | tee provision-evidence/hive-jdbc-class-source.txt
 docker exec "$server" bash /root/lab/ops/ambari-provision.sh "${args[@]}" --check
 docker cp "$lab/service-checks.sh" "$server:/root/lab/service-checks.sh"
-docker exec "$server" bash /root/lab/service-checks.sh
+check_status=0
+docker exec "$server" bash /root/lab/service-checks.sh || check_status=$?
 for host in "${hosts[@]}"; do
   docker exec "$host" rpm -qa --qf "$query" | sort > "provision-evidence/$host-after.tsv"
 done
 bash "$lab/diagnostics.sh"
-python3 "$lab/verify.py" "$lab/hosts.csv" provision-evidence
+python3 "$lab/verify.py" "$lab/hosts.csv" provision-evidence || check_status=$?
 gateway=bd03.lab.test
 docker exec "$gateway" install -d -m 0755 /tmp/ambari-workload
 for source in ops/smoke-yarn.sh cluster/compute/ComputeCheck.java "$lab/workloads.sh"; do
@@ -118,3 +119,4 @@ SQL
 )
 [[ $count == 1 ]]
 printf 'POSTGRES_METASTORE_PASSED lab_%s.readings\n' "$tag" | tee -a provision-evidence/workloads.log
+exit "$check_status"
