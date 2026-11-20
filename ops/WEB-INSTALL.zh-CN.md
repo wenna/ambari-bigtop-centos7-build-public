@@ -47,4 +47,4 @@
 3. 在 **Review** 对照清单核对服务、主机、仓库和数据库，再提交安装。在 **Install, Start and Test** 展开每台主机的任务；记录失败任务的主机名、组件和首个错误。处理依赖、权限或配置后从界面重试。出现失败或仅部分启动时，保留当前请求记录和数据目录。
 4. 在 **Summary** 完成向导，进入服务页和后台操作，核对服务进程为 `STARTED`，客户端为 `INSTALLED`。逐项运行服务检查，提交现场 YARN、Hive on Tez 和 Spark on YARN 作业并核对输出。需高可用时另行完成 NameNode 和 ResourceManager 的 HA 配置及切换验收；首次安装完成并不代表 HA 已生效。
 
-**验收说明**　当前浏览器记录覆盖至安装请求下发，仍需核对全部服务成功启动及 Summary。生产验收请以现场后台任务和组件状态为准。
+**本版实测结果：生产验收未通过。** 取消 Router 后，三节点共 44 个 INSTALL 任务全部完成。启动阶段 8 个任务完成、1 个失败、11 个中止。ZooKeeper、NameNode 和 DataNode 启动成功。失败项为 YARN 的 `TIMELINE_READER`，它调用内嵌 HBase 的 `/usr/bigtop/3.3.0/usr/lib/hbase/bin/hbase-daemon.sh` 时找不到文件。随后 ResourceManager、Hive 和 Spark 等启动任务中止，7 项服务检查只完成 1 项。向导提示 “Installed and started the services with some warnings” 时，须查看 **Background Operations → Start Services**，按失败处理。这一版本仍欠缺 Web 路线全部服务启动成功及 Summary 验收。[三节点实际运行和任务清单](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44773214491)
