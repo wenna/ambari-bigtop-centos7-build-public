@@ -37,6 +37,8 @@ bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env ambari
 
 ## 3. 通过 Ambari 下发服务安装
 
+完成第 2 节后，请选择一种新建集群方式。使用浏览器时，直接转到下方“使用 Ambari Web 向导”。使用清单自动映射角色时，执行以下 Blueprint 命令。两种方式仅需提交一种。
+
 在 Ambari Server 上准备 `/etc/bigtop-deploy/hosts.csv`、填好的 `site.json`、Hive 库口令文件 `hive-db.password` 和该机的 `ambari.netrc`，并进入本机的交付根目录。下面使用 loopback API；启用了 HTTPS 时改成有受信证书的地址。仓库 URL 应能从所有 Agent 访问。示例的 file URL 要求每台主机使用完全一致的只读挂载路径；也可填写内部 HTTP(S) 仓库地址。
 
 ```bash
@@ -53,7 +55,7 @@ bash ops/ambari-provision.sh http://localhost:8080 "$s/ambari.netrc" prod prod-b
 
 ### 使用 Ambari Web 向导
 
-如果由值班人员手工分配服务，可在管理面安装完成后登录 Ambari Web，选择 **Launch Install Wizard**，选择 BIGTOP 3.3.0，为 **redhat7** 设置内部应用仓库 URL。节点清单填写完整 FQDN，选择已手工注册 Agent，检查所有主机状态，再选择服务和主从节点、填写 Hive 外部 PostgreSQL 的 TLS JDBC 参数、复核挂载点后执行 **Install, Start and Test**。需要 HA 时，按界面提供的 NameNode 和 ResourceManager HA 流程设置两个主机、仲裁和 fencing。Web 向导的具体布局与蓝图是两种独立的建群路径，同一个新集群只提交一次。此处脚本验收走 Ambari API 蓝图路径。
+浏览器建群的操作步骤、参数和验收记录见交付目录的 `ops/WEB-INSTALL.zh-CN.md`。仓库中也可直接阅读[页面向导手册](WEB-INSTALL.zh-CN.md)。请先完成主机、数据库和管理面的准备，再从 **Launch Install Wizard** 进入。
 
 ## 4. 复查和恢复
 
