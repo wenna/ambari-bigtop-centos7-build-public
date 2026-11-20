@@ -2,7 +2,7 @@
 
 ## 通过 Ambari 安装 BIGTOP
 
-在新建 CentOS 7.9 x86_64 集群上，先部署 Ambari Server 和 Agent，再由 Ambari 下发各主机的服务安装与启动任务。[Ambari 原生安装手册](ops/AMBARI.zh-CN.md) · [候选包 el7-ambari-native-rc-44493966628](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-77893cbca8717a78808a)。[三节点 ZooKeeper 验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44493332536)已核对真实 RPM、三个服务实例和三个客户端。完整 HA 生态验收记录见 [Ambari 建群工作流](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/workflows/test-ambari-provision.yml)。生产投运前应核对所选交付版本的安装、启动、服务检查和作业验收结果。
+在 CentOS 7.9 x86_64 新建集群上，先部署 Ambari Server 和 Agent，再由 Ambari 安装并管理 BIGTOP 服务。[离线运维包（草稿）](https://github.com/wenna/ambari-bigtop-centos7-build-public/releases/tag/untagged-fd5f6235b2f548e4ab24) · [原生安装手册](ops/AMBARI.zh-CN.md)。[三节点完整验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44569426175)通过全部七项服务检查、NameNode 和 ResourceManager 主备切换、HDFS 读写、WordCount、Hive on Tez 和 Spark on YARN。现场的容量和容灾目标需要在目标环境验证。
 
 ## 可变节点数的离线运维包（systemd 管理数据服务）
 
