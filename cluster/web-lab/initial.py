@@ -11,9 +11,17 @@ def initial(page, base, hosts, repo, shot):
     page.locator(".login-password").fill("admin")
     page.get_by_role("button", name=re.compile("Sign In", re.I)).click()
     page.get_by_text("Launch Install Wizard", exact=True).first.click(timeout=90000)
-    page.locator("#cluster-name").fill("weblab")
+    cluster_name = page.locator("#cluster-name")
+    cluster_name.press_sequentially("weblab", delay=100)
+    cluster_name.press("Tab")
+    expect(cluster_name).to_have_value("weblab")
     shot("01-cluster-name")
     forward = page.locator(".wizard-footer button.btn-success")
+    if not forward.is_enabled():
+        print("Cluster name validation", page.evaluate("""() => {
+          const c = require('app').router.get('wizardStep0Controller');
+          return ['content.cluster.name','invalidClusterName','hasNotStacksAvailable','isSubmitDisabled'].map(k => [k,c.get(k)]);
+        }"""), flush=True)
     forward.click()
 
     stack = page.locator("#select-stack")
