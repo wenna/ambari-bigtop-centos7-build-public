@@ -133,6 +133,8 @@ def services(page, hosts, db_password, shot):
     shot("05-masters")
     advance(page, "#step6", {("Validation Issues", "Continue Anyway")})
     table = page.locator("#component_assign_table")
+    table.locator("#none-ROUTER").click()
+    expect(table.locator("td.ROUTER input:checked")).to_have_count(0)
     for role in ("DATANODE", "NODEMANAGER", "CLIENT"):
         table.locator(f"#all-{role}").click()
         for host in hosts:

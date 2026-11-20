@@ -4,7 +4,7 @@
 
 ## 进入向导前
 
-**验收进度**　三台 CentOS 7.9 x86_64 容器已通过本地仓库校验、手工注册和主机确认。Chromium 已选中下列七项服务。后续服务下发、启动和 Summary 仍需浏览器验收，当前请将下述流程用于预生产验证。[浏览器运行记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44766605290)
+**验收进度**　三台 CentOS 7.9 x86_64 容器已通过本地仓库校验、手工注册和主机确认。Chromium 选中七项服务、分配主从角色、核对账号，并对外部 PostgreSQL 执行了 TLS 连接测试。通过 **Review** 后，Ambari 创建了 `Install Services` 请求，页面显示正在安装 DataNode。最终启动结果见下方验收说明。[浏览器及后台任务记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44769937053)
 
 1. 按 [管理面安装手册](AMBARI.zh-CN.md) 第 1、2 节校验交付文件、准备 FQDN 和正反向解析、SSH、时钟、数据盘、服务账号、防火墙、Java 版本和数据库。运行 `bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env ambari`，确认清单里的每个 Agent 都已注册为 `HEALTHY`。在新建集群前保留这份主机清单。
 2. 将包中 `yum-staging/` 和 `runtime-repo/` 的完整目录分别发布到内网应用仓库和系统依赖仓库。应用仓库的根目录必须直接包含 `repodata/repomd.xml`。系统依赖仓库需在每台机器上启用并配置交付的 CentOS/EPEL 公钥。逐台核对 `yum repolist enabled`，确认软件来自预期仓库。
@@ -34,6 +34,8 @@
 4. 在 **Choose Services** 选 HDFS、YARN 与 MapReduce2、ZooKeeper、Tez、Hive 和 Spark。在 **Assign Masters** 按规划指定 NameNode、Secondary NameNode、ResourceManager、History Server、Hive Metastore、HiveServer2、Spark History Server 和 ZooKeeper Server。ZooKeeper 选择分布于独立故障域的奇数个成员。
 5. 在 **Assign Slaves and Clients** 核对每台主机的 DataNode、NodeManager 和客户端角色。生产节点按数据盘、计算资源和网关用途分配；三节点验收的角色密度不适合直接照搬到 20–100 台。
 
+   **单 nameservice 集群请在 Router 列点击 none。** 三节点向导默认给一台机器勾选了 Router。实测该任务因本包的 stack-select 无法识别 `hadoop-hdfs-dfsrouter` 而失败。Router 用于 HDFS Federation，本手册的普通 HDFS 与 NameNode HA 均无需分配此角色。[失败任务记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44771313375)
+
 选择上述服务后会出现 **Limited Functionality Warning**，提示省略 Ambari Metrics 将无法在 Ambari 查看相应指标。接受该范围时点击 **Proceed Anyway**。
 
 ![三台容器实测的服务选择页](web-selected-services.png)
@@ -44,3 +46,5 @@
 2. 核对 DataNode 数据目录、NameNode 元数据目录、NodeManager 本地盘和日志盘、YARN 内存与 vCore、各服务运行账号和组，以及 Tez 归档路径。每个目录应位于对应角色的预期挂载点。根据现场容量解决校验告警，复核配置后进入 **Review**。
 3. 在 **Review** 对照清单核对服务、主机、仓库和数据库，再提交安装。在 **Install, Start and Test** 展开每台主机的任务；记录失败任务的主机名、组件和首个错误。处理依赖、权限或配置后从界面重试。出现失败或仅部分启动时，保留当前请求记录和数据目录。
 4. 在 **Summary** 完成向导，进入服务页和后台操作，核对服务进程为 `STARTED`，客户端为 `INSTALLED`。逐项运行服务检查，提交现场 YARN、Hive on Tez 和 Spark on YARN 作业并核对输出。需高可用时另行完成 NameNode 和 ResourceManager 的 HA 配置及切换验收；首次安装完成并不代表 HA 已生效。
+
+**验收说明**　当前浏览器记录覆盖至安装请求下发，仍需核对全部服务成功启动及 Summary。生产验收请以现场后台任务和组件状态为准。
