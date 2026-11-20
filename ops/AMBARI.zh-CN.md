@@ -57,6 +57,16 @@ bash ops/ambari-provision.sh http://localhost:8080 "$s/ambari.netrc" prod prod-b
 
 ## 4. 复查和恢复
 
+**Hive 驱动核对。** Hive 3.1 的 schematool 在独立 JVM 中运行，会从自己的 lib 目录加载驱动。安装器将交付的 pgJDBC 42.7.7 放入该目录，保留旧 RPM 驱动文件名以兼容已有脚本。用文件名判断版本容易误判。在 Metastore 主机执行以下检查，三个摘要应与交付驱动一致（SHA-256 为 157963d60ae66d607e09466e8c0cdf8087e9cb20d0159899ffca96bca2528460）。数据库继续使用 SCRAM 和证书校验。
+
+```bash
+sha256sum /opt/cluster/postgresql.jar /usr/bigtop/3.3.0/usr/lib/hive/lib/postgresql{,-9.4.1208.jre7}.jar
+sudo -u hive env HADOOP_OPTS=-verbose:class /usr/bigtop/3.3.0/usr/lib/hive/bin/schematool \
+  -dbType postgres -info 2>&1 | grep -E 'Loaded org.postgresql.Driver from|schema version'
+```
+
+**作业与切换。** Ambari Web 的 Hive 和 Spark 服务检查通过后，另用业务测试账号执行带 GROUP BY 的 Hive 查询和 Spark cluster 模式作业，核对 YARN 应用编号和 HDFS 输出。安排停机演练时记录活动 NN/RM、停机时刻、对端接管时刻和原节点恢复备用状态的时刻。普通业务账号运行作业，HA 管理命令使用获授权的 HDFS 和 YARN 身份。
+
 同一命令追加 `--check` 可读取组件状态，不下发新任务。控制器在 `/var/lib/bigtop-deploy/native/集群名` 保留请求编号；在管理进程中断后复用相同输入可继续等待。Ambari 报错时，在后台操作中记录请求、任务、主机和首个错误，在解决缺包、文件权限、数据库或名称解析问题后于 Ambari 内重试。保留已有 NameNode、JournalNode、ZooKeeper 和元数据库的数据目录。
 
 生产验收应留存两台 NN 和 RM 的状态、真实的 HDFS 读写、YARN 作业、Hive on Tez 查询及 Spark on YARN 输出，再做现场故障切换。当前熟悉的 20/100 Agent 心跳验收仅覆盖管理面。此配置默认采用 Hadoop simple 认证。开启多租户前需要按站点要求配置 Kerberos、TLS 和授权，并验证允许与拒绝访问的结果。
