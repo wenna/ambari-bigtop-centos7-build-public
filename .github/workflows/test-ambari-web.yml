@@ -39,6 +39,9 @@ jobs:
           /tmp/web-driver/bin/python cluster/web-lab/browser.py
       - name: Verify installed services and Requests
         run: python3 cluster/web-lab/verify.py
+      - name: Capture Ambari request and task statuses
+        if: ${{ always() && hashFiles('management-evidence/hosts.json') != '' }}
+        run: python3 cluster/web-lab/diagnostics.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: ${{ always() }}
         with:

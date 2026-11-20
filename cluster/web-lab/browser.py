@@ -33,11 +33,17 @@ with sync_playwright() as engine:
                 print(json.dumps([response.request.method, path, response.status]), file=log)
 
     page.on("response", record)
+    page.on("pageerror", lambda error: print("Browser error:", str(error).replace(password, "[redacted]")[:1200], flush=True))
     try:
         page.goto(base, wait_until="domcontentloaded")
         page.wait_for_timeout(2500)
         shot("00-login")
-        from initial import initial
+        try:
+            from initial import initial
+        except ModuleNotFoundError as error:
+            if error.name != "initial":
+                raise
+            from entry_probe import initial
         from services import services
         initial(page, base, hosts, repo, shot)
         services(page, hosts, password, shot)
@@ -45,6 +51,9 @@ with sync_playwright() as engine:
         print("URL", page.url.split("?")[0], flush=True)
         text = page.locator("body").inner_text(timeout=6000)
         print(text.replace(password, "[redacted]")[-6500:], flush=True)
+        print("Visible controls:", page.locator("button:visible, input:visible, select:visible").evaluate_all(
+            "(nodes) => nodes.map(e => [e.tagName, e.type, e.id, e.name, e.getAttribute('data-qa'), e.placeholder, e.disabled])"
+        )[:120], flush=True)
         shot("failure")
         raise
     finally:
