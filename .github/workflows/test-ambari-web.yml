@@ -1,0 +1,48 @@
+name: Install BIGTOP through the Ambari Web wizard
+on: workflow_dispatch
+permissions:
+  contents: write # Download the frozen repositories from draft releases.
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      NATIVE_STACK: '1'
+      AGENT_COUNT: '3'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prepare runner disk and Chromium driver
+        run: |
+          sudo rm -rf -- /usr/local/lib/android/sdk
+          python3 -m venv /tmp/web-driver
+          /tmp/web-driver/bin/pip install playwright==1.51.0
+          command -v google-chrome
+      - name: Fetch and verify pinned offline repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash cluster/archive-input.sh
+          gh release download el7-runtime-44273252473 -p el7-runtime.tar
+          sha256sum -c manifests/runtime-44273252473.sha256
+          tar xf el7-runtime.tar && rm el7-runtime.tar
+          bash cluster/native-runtime.sh
+          sha256sum --quiet -c manifests/runtime-SHA256SUMS
+      - name: Register three CentOS 7 agents and prepare local YUM and PostgreSQL
+        run: |
+          bash cluster/check-management-installer.sh
+          bash cluster/ambari-lab/run.sh --prepare-only
+      - name: Operate the installer in Chrome
+        run: |
+          export AMBARI_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' bd01.lab.test)
+          /tmp/web-driver/bin/python cluster/web-lab/browser.py
+      - name: Verify installed services and Requests
+        run: python3 cluster/web-lab/verify.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ always() }}
+        with:
+          name: web-installer-${{ github.run_attempt }}
+          path: web-evidence/
+          if-no-files-found: ignore
+          retention-days: 7

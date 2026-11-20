@@ -60,6 +60,7 @@ printf "CREATE ROLE hive_catalog LOGIN PASSWORD '%s';\nCREATE DATABASE hive OWNE
   docker exec -i mgmt-db psql -X -v ON_ERROR_STOP=1 -U ambari -d ambari
 printf '%s\n' "$hive_pass" | docker exec -i "$server" bash -ec 'umask 077; cat > /root/hive.pass'
 unset hive_pass
+if [[ ${1:-} == --prepare-only ]]; then exit 0; fi
 jq '.tez_archive="/bigtop/apps/3.3.0/tez/tez.tar.gz" | .nameservice="lab" | .datanode_dirs=["/disk1/hdfs/data"] | .nm_local_dirs=["/disk1/yarn/local"] |
     .pg_url="jdbc:postgresql://pg.lab.test:5432/hive?sslmode=verify-full&sslrootcert=/etc/pki/bigtop/ca.crt" |
     .proxy_groups=["hadoop"] | .nm_memory_mb=1536 | .nm_vcores=2 | .task_memory_mb=512' production/site.example.json > "$work/site.json"
