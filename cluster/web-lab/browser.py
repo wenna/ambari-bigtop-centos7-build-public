@@ -38,12 +38,7 @@ with sync_playwright() as engine:
         page.goto(base, wait_until="domcontentloaded")
         page.wait_for_timeout(2500)
         shot("00-login")
-        try:
-            from initial import initial
-        except ModuleNotFoundError as error:
-            if error.name != "initial":
-                raise
-            from entry_probe import initial
+        from initial import initial
         from services import services
         initial(page, base, hosts, repo, shot)
         services(page, hosts, password, shot)
