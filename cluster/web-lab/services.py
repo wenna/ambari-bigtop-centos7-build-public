@@ -24,9 +24,10 @@ def advance(page, destination, allowed=()):
         title = modal.locator(".modal-header h4").inner_text().strip()
         primary = modal.locator('[data-qa="modal-primary"]')
         caption = primary.inner_text().strip()
-        if (title, caption) not in allowed:
+        if (title.casefold(), caption.casefold()) not in {(t.casefold(), c.casefold()) for t, c in allowed}:
             raise RuntimeError(f"Unexpected installer decision {title!r} / {caption!r}")
         primary.click()
+        page.wait_for_timeout(350)
     raise RuntimeError(f"Wizard did not reach {destination}")
 
 
