@@ -35,13 +35,14 @@ def initial(page, base, hosts, repo, shot):
     expect(version).to_contain_text("3.3.0")
     stack.get_by_text("Use Local Repository", exact=True).click()
     form = stack.locator("#repoVersionInfoForm")
-    os_rows = form.locator("tr").filter(has=page.locator("td > table.inner-table"))
+    os_rows = form.locator('tr[data-qa="os-wrapper"]:visible')
     redhat = os_rows.filter(has=page.get_by_text("redhat7", exact=True))
     if not redhat.count():
         form.locator(".add-os-button").click()
         form.get_by_role("link", name="redhat7", exact=True).click()
     others = os_rows.filter(has_not=page.get_by_text("redhat7", exact=True))
     while others.count():
+        others.first.hover()
         others.first.locator(".remove-icon").click()
     url = redhat.locator(".repo-url input")
     expect(url).to_have_count(1)
