@@ -116,8 +116,8 @@ def configure_hive(page, password, shot):
     expect(db.locator('input[data-qa="javax.jdo.option.ConnectionURL"]:visible')).to_have_value(JDBC)
     shot("07-database-connected")
     advance(page, "#directories")
-    advance(page, "#accounts")
-    accounts = page.locator("#accounts .accounts-table")
+    advance(page, 'input[data-qa="hdfs_user"]')
+    accounts = page.locator("#serviceConfig")
     for prop, account in {"hdfs_user": "hdfs", "yarn_user": "yarn", "mapred_user": "mapred",
                           "hive_user": "hive", "zk_user": "zookeeper", "spark_user": "spark"}.items():
         expect(accounts.locator(f'input[data-qa="{prop}"]')).to_have_value(account)
