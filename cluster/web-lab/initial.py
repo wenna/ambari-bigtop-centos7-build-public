@@ -74,13 +74,16 @@ def initial(page, base, hosts, repo, shot):
           throw Error("Manual registration radio has no clickable area");
         }""")
         page.mouse.click(*point)
-        warning = modal.filter(has_text="manually install")
-        warning.get_by_role("button", name="OK", exact=True).click()
+        expect(page.locator("body")).to_contain_text("manually install and start the Ambari Agent")
+        page.locator('[data-qa="modal-primary"]:visible').click()
     shot("03-manual-registration")
     forward.click()
-    modal.filter(has_text="Before You Proceed").get_by_role("button", name="OK", exact=True).click()
-
     table = page.locator("#confirm-hosts-table")
+    prompt = page.locator('[data-qa="modal-primary"]:visible')
+    table.or_(prompt).first.wait_for(timeout=90000)
+    if prompt.is_visible():
+        expect(page.locator("body")).to_contain_text("Before You Proceed")
+        prompt.click()
     for host in hosts:
         row = table.locator("tbody tr").filter(has=page.get_by_text(host, exact=True))
         expect(row.locator(".step3-table-status")).to_contain_text(
