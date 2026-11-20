@@ -25,7 +25,7 @@ def initial(page, base, hosts, repo, shot):
     forward.click()
 
     stack = page.locator("#select-stack")
-    stack.locator(".nav-tabs").get_by_text("BIGTOP", exact=True).click()
+    stack.locator(".nav-tabs").get_by_text("BIGTOP-3.3.0", exact=True).click()
     version = stack.locator(".details-panel .dropdown-toggle")
     if not re.search(r"3\.3\.0", version.inner_text()):
         version.click()
@@ -45,7 +45,8 @@ def initial(page, base, hosts, repo, shot):
         others.first.locator(".remove-icon").click()
     url = redhat.locator(".repo-url input")
     expect(url).to_have_count(1)
-    url.fill(repo)
+    url.press("ControlOrMeta+a")
+    url.press_sequentially(repo, delay=10)
     url.press("Tab")
     shot("02-bigtop-redhat7-repository")
     forward.click()
