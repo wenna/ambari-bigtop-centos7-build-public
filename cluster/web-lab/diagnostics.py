@@ -22,4 +22,9 @@ for cluster in items("clusters"):
     for task in inventory:
         if task["status"] in {"FAILED", "TIMEDOUT"}:
             print(task)
+            target = f"clusters/{name}/requests/{task['request_id']}/tasks/{task['id']}?fields=Tasks/stderr"
+            raw = subprocess.check_output(["docker", "exec", "bd01.lab.test", "curl", "-fsS", "--netrc-file", "/root/test.netrc", "http://localhost:8080/api/v1/" + target], text=True)
+            secret = subprocess.check_output(["docker", "exec", "bd01.lab.test", "cat", "/root/hive.pass"], text=True).strip()
+            stderr = json.loads(raw)["Tasks"].get("stderr") or ""
+            print(stderr.replace(secret, "[redacted]")[-2800:])
     (out / "task-status.json").write_text(json.dumps(inventory, indent=2))

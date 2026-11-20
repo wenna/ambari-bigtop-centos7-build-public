@@ -148,7 +148,9 @@ def services(page, hosts, db_password, shot):
     if reviewed != SERVICES:
         raise RuntimeError(f"Unexpected services in deployment review {sorted(reviewed)}")
     shot("08-review")
-    advance(page, "#deploy")
+    page.locator(NEXT).click()
+    page.wait_for_url("**/#/installer/step9", timeout=180000)
+    page.locator("#deploy").wait_for(timeout=120000)
     shot("09-install")
     result = page.locator('#deploy p[data-qa^="deploy-result-"]')
     result.wait_for(timeout=45 * 60 * 1000)
