@@ -61,7 +61,19 @@ def initial(page, base, hosts, repo, shot):
     host_names.fill("\n".join(hosts))
     manual = page.locator(".radio-button-options .row").filter(has_text="manual registration")
     if not manual.locator("input[type=radio]").is_checked():
-        manual.locator("label").click()
+        label = manual.locator("label")
+        label.locator("..").scroll_into_view_if_needed()
+        point = label.evaluate("""label => {
+          const r = label.getBoundingClientRect();
+          for (let y = -16; y <= 24; y += 2) {
+            for (let x = -16; x <= 24; x += 2) {
+              let px = r.x+x, py = r.y+y;
+              if (document.elementFromPoint(px,py) === label) return [px,py];
+            }
+          }
+          throw Error("Manual registration radio has no clickable area");
+        }""")
+        page.mouse.click(*point)
         warning = modal.filter(has_text="manually install")
         warning.get_by_role("button", name="OK", exact=True).click()
     shot("03-manual-registration")
