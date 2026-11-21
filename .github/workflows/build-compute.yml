@@ -5,7 +5,7 @@ on:
       component:
         type: choice
         required: true
-        options: [tez, hive, spark]
+        options: [tez, hive, spark, hbase]
       free_quota_confirmed:
         type: boolean
         default: false
@@ -38,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          case "$BUILD_EXTRA" in hive|tez|spark) ;; *) exit 64;; esac
+          case "$BUILD_EXTRA" in hive|tez|spark|hbase) ;; *) exit 64;; esac
           mapfile -d '' -t files < <(find upstream/bigtop/output -name "${BUILD_EXTRA}_3_3_0*.rpm" -type f -print0)
           grep -E "^(${BUILD_EXTRA}_3_3_0) " artifacts/rpm-metadata.txt | grep -E ' (x86_64|noarch)$'
           test "${#files[@]}" -gt 1

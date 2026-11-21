@@ -3,7 +3,7 @@ set -euo pipefail
 build_extra="${BUILD_EXTRA:-foundation}"
 case "$build_extra" in
   foundation) build_extra='' ;;
-  zookeeper|hadoop|tez|hive|spark) ;;
+  zookeeper|hadoop|tez|hive|spark|hbase) ;;
   *) printf 'Unsupported component\n' >&2; exit 64 ;;
 esac
 mkdir -p artifacts
@@ -52,9 +52,20 @@ if (( free_bytes < 5 * 1024 * 1024 * 1024 )); then
   exit 78
 fi
 printf 'Stage: build Bigtop 3.3.0 foundation packages\n'
+build_user=()
+maven_cache=/root/.m2/repository
+if [[ $build_extra == hbase ]]; then
+  (( EUID != 0 )) || { echo "Launch the HBase build as an unprivileged user" >&2; exit 64; }
+  mkdir -p .build-cache/hbase-home/.m2
+  build_user=(--user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges
+              -v "$PWD/.build-cache/hbase-home:/build-home" -e HOME=/build-home
+              -e JAVA_TOOL_OPTIONS=-Duser.home=/build-home -e GRADLE_USER_HOME=/build-home/.gradle)
+  maven_cache=/build-home/.m2/repository
+fi
 docker run --rm --platform linux/amd64 --memory 5g --cpus 2 -e BUILD_EXTRA="$build_extra" \
+  "${build_user[@]}" \
   -v "$PWD/upstream/bigtop:/ws" \
-  -v "$PWD/.build-cache/m2:/root/.m2/repository" -w /ws "$build_image" \
+  -v "$PWD/.build-cache/m2:$maven_cache" -w /ws "$build_image" \
   bash -lc 'source /etc/profile.d/bigtop.sh; tasks=(bigtop-select-pkg bigtop-utils-pkg); options=(); if [[ -n "$BUILD_EXTRA" ]]; then tasks+=("${BUILD_EXTRA}-pkg"); fi; if [[ "$BUILD_EXTRA" == hadoop ]]; then options+=(-Dbuildwithdeps=true); fi; ./gradlew --no-daemon "${tasks[@]}" "${options[@]}" -PparentDir=/usr/bigtop -PpkgSuffix -PbuildThreads=2 repo'
 printf 'Stage: RPM metadata\n'
 docker run --rm --platform linux/amd64 -v "$PWD/upstream/bigtop/output:/rpms:ro" \
