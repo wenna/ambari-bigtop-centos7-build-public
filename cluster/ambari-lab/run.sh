@@ -62,7 +62,7 @@ for host in bd01.lab.test bd02.lab.test; do
   pub=$(docker exec "$peer" cat /etc/ssh/ssh_host_ed25519_key.pub)
   printf '%s %s\n' "$peer" "$pub" | docker exec -i "$host" bash -ec 'cat >> /etc/ssh/ssh_known_hosts'
   docker exec -u hdfs "$host" ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
-    -i /etc/security/hadoop/fencing/id_rsa "hdfs@$peer" 'test "$(id -un)" = hdfs && command -v fuser'
+    -i /etc/security/hadoop/fencing/id_rsa "hdfs@$peer" 'test "$(id -un)" = hdfs && test -x /sbin/fuser && command -v nc'
 done
 hive_pass="Hive!$(openssl rand -hex 24)"
 echo "::add-mask::$hive_pass"
