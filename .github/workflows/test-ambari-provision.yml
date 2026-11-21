@@ -8,6 +8,7 @@ jobs:
     timeout-minutes: 120
     env:
       NATIVE_STACK: '1'
+      OPERATOR_TEST: '1'
       AGENT_COUNT: '3'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
