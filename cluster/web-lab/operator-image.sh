@@ -12,6 +12,10 @@ yum -y --disablerepo='*' --enablerepo=operator-bootstrap install sudo
 rm -f /etc/yum.repos.d/operator-bootstrap.repo
 yum clean all
 useradd -m clusterops
+# CentOS sshd rejects a locked shadow entry even for key authentication.
+openssl_secret=$(head -c 48 /dev/urandom | base64)
+printf 'clusterops:%s\n' "$openssl_secret" | chpasswd
+unset openssl_secret
 cat > /etc/sudoers.d/clusterops <<'EOF'
 Defaults:clusterops !requiretty
 clusterops ALL=(root) NOPASSWD: /bin/bash /project/cluster/install-offline.sh *, /bin/bash /kit/ops/manage-server.sh *, /usr/bin/python3 /kit/ops/ambari-stack-el7.py

@@ -54,10 +54,10 @@ if [[ ${OPERATOR_TEST:-0} == 1 ]]; then
   for host in "${hosts[@]}"; do
     docker exec "$host" install -d -o clusterops -g clusterops -m 0700 /home/clusterops/.ssh
     docker cp "$secret/operator-key.pub" "$host:/home/clusterops/.ssh/authorized_keys"
-    docker exec "$host" bash -ec 'ssh-keygen -A; /usr/sbin/sshd -o PermitRootLogin=no -o PasswordAuthentication=no'
+    docker exec "$host" bash -ec 'chown clusterops:clusterops /home/clusterops/.ssh/authorized_keys; chmod 600 /home/clusterops/.ssh/authorized_keys; ssh-keygen -A; /usr/sbin/sshd -E /run/operator-sshd.log -o PermitRootLogin=no -o PasswordAuthentication=no -o ChallengeResponseAuthentication=no -o UsePAM=no'
     address=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$host")
     printf '%s %s\n' "$address" "$(docker exec "$host" cat /etc/ssh/ssh_host_ed25519_key.pub)" >> "$secret/operator-hosts"
-    "${SSH_CHECK[@]}" "clusterops@$address" 'id; test "$(id -u)" -gt 0'
+    "${SSH_CHECK[@]}" "clusterops@$address" 'id; test "$(id -u)" -gt 0' || { docker exec "$host" tail -20 /run/operator-sshd.log; exit 1; }
   done
 fi
 printf '%s\n' "$password" | docker exec -i "$server" bash -c 'umask 077; cat > /root/pg.pass'
