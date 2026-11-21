@@ -57,7 +57,19 @@ maven_cache=/root/.m2/repository
 if [[ $build_extra == hbase ]]; then
   (( EUID != 0 )) || { echo "Launch the HBase build as an unprivileged user" >&2; exit 64; }
   mkdir -p .build-cache/hbase-home/.m2
+  identity_dir="$PWD/.build-cache/hbase-identity"
+  mkdir -p "$identity_dir"
+  for database in passwd group; do
+    docker run --rm --user "$(id -u):$(id -g)" --network none "$build_image" cat "/etc/$database" > "$identity_dir/$database"
+  done
+  if ! awk -F: -v uid="$(id -u)" '$3 == uid { found=1 } END { exit !found }' "$identity_dir/passwd"; then
+    printf 'hbasebuilder:x:%s:%s:HBase RPM builder:/build-home:/bin/bash\n' "$(id -u)" "$(id -g)" >> "$identity_dir/passwd"
+  fi
+  if ! awk -F: -v gid="$(id -g)" '$3 == gid { found=1 } END { exit !found }' "$identity_dir/group"; then
+    printf 'hbasebuilder:x:%s:\n' "$(id -g)" >> "$identity_dir/group"
+  fi
   build_user=(--user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges
+              -v "$identity_dir/passwd:/etc/passwd:ro" -v "$identity_dir/group:/etc/group:ro"
               -v "$PWD/.build-cache/hbase-home:/build-home" -e HOME=/build-home
               -e JAVA_TOOL_OPTIONS=-Duser.home=/build-home -e GRADLE_USER_HOME=/build-home/.gradle)
   maven_cache=/build-home/.m2/repository
