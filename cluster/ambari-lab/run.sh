@@ -47,12 +47,22 @@ for host in bd01.lab.test bd02.lab.test; do
   docker exec -i "$host" bash -se <<'FENCE'
 getent group hadoop >/dev/null || groupadd -r hadoop
 id hdfs >/dev/null 2>&1 || useradd -m -r -g hadoop -s /bin/bash hdfs
+# The key-only SSH fixture rejects locked shadow accounts when PAM is disabled.
+printf 'hdfs:%s\n' "$(head -c 48 /dev/urandom | base64)" | chpasswd
 home=$(getent passwd hdfs | cut -d: -f6)
 install -d -o hdfs -g hadoop -m 0700 "$home/.ssh" /etc/security/hadoop/fencing
 install -o hdfs -g hadoop -m 0600 /root/lab-fencing /etc/security/hadoop/fencing/id_rsa
 install -o hdfs -g hadoop -m 0600 /root/lab-fencing.pub "$home/.ssh/authorized_keys"
 rm -f /root/lab-fencing /root/lab-fencing.pub
 FENCE
+done
+for host in bd01.lab.test bd02.lab.test; do
+  peer=bd01.lab.test
+  [[ $host != "$peer" ]] || peer=bd02.lab.test
+  pub=$(docker exec "$peer" cat /etc/ssh/ssh_host_ed25519_key.pub)
+  printf '%s %s\n' "$peer" "$pub" | docker exec -i "$host" bash -ec 'cat >> /etc/ssh/ssh_known_hosts'
+  docker exec -u hdfs "$host" ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+    -i /etc/security/hadoop/fencing/id_rsa "hdfs@$peer" 'test "$(id -un)" = hdfs && command -v fuser'
 done
 hive_pass="Hive!$(openssl rand -hex 24)"
 echo "::add-mask::$hive_pass"
