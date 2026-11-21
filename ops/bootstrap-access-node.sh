@@ -10,8 +10,10 @@ install_policy() {
     path=$(dirname "$path")
   done
   if [[ ,$(findmnt -nr -o OPTIONS -T "$kit"), != *,ro,* ]]; then
-    [[ -z $(find "$kit" \( ! -user root -o -perm /022 -o -type l \) -print -quit) ]] || {
-      echo "Mount a trusted read-only kit or use a root-owned protected release tree" >&2; return 1;
+    local unsafe
+    unsafe=$(find "$kit" \( ! -user root -o -perm /022 -o -type l \) -print -quit)
+    [[ -z $unsafe ]] || {
+      echo "Unprotected entry: $unsafe. Use a trusted read-only kit or a root-owned protected release tree" >&2; return 1;
     }
   fi
   (cd "$kit"; printf '%s  SHA256SUMS\n' "$digest" | sha256sum --status -c -; sha256sum --quiet -c SHA256SUMS)

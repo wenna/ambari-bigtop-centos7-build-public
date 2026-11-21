@@ -25,7 +25,7 @@ ssh-keygen -q -t ed25519 -N '' -f "$tmp/admin"
 docker cp "$tmp/admin.pub" "$node:/home/siteadmin/.ssh/authorized_keys"
 docker exec "$node" chown siteadmin:siteadmin /home/siteadmin/.ssh/authorized_keys
 docker cp ops/ambari-action.sh "$node:/srv/kit/ops/ambari-action.sh"
-docker exec "$node" bash -ec 'cd /srv/kit; chmod 0755 ops/ambari-action.sh; sha256sum ./ops/ambari-action.sh > SHA256SUMS'
+docker exec "$node" bash -ec 'umask 022; cd /srv/kit; chown -R root:root .; chmod 0755 ops/ambari-action.sh; sha256sum ./ops/ambari-action.sh > SHA256SUMS; chmod -R go-w .'
 read -r digest _ < <(docker exec "$node" sha256sum /srv/kit/SHA256SUMS)
 address=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$node")
 printf '%s %s\n' "$address" "$fqdn" | sudo -n tee -a /etc/hosts >/dev/null
