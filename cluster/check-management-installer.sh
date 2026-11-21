@@ -18,7 +18,25 @@ docker run -d --name mgmt-db --hostname pg.lab.test --network mgmt-net --network
   -v "$secret/server.key:/var/tmp/tls.key:ro" -v "$secret/server.crt:/var/tmp/tls.crt:ro" \
   -e POSTGRES_DB=ambari -e POSTGRES_USER=ambari -e POSTGRES_PASSWORD="$password" \
   offline/postgres:15 -c ssl=on -c ssl_key_file=/var/tmp/tls.key -c ssl_cert_file=/var/tmp/tls.crt
-docker create --name mgmt-install --network none -v "$PWD:/project:ro" -v "$PWD/yum-staging:/repo:ro" -v "$PWD/runtime-repo:/runtime:ro" "$centos" bash /project/cluster/install-offline.sh ambari-server ambari-agent java-1.8.0-openjdk-devel
+install_user=()
+install_command=(/bin/bash /project/cluster/install-offline.sh ambari-server ambari-agent java-1.8.0-openjdk-devel)
+invoke() { local host=$1; shift; docker exec "$host" "$@"; }
+if [[ ${OPERATOR_TEST:-0} == 1 ]]; then
+  docker run --name operator-base -v "$PWD/cluster/web-lab:/fixture:ro" "$centos" bash /fixture/operator-image.sh
+  docker commit operator-base el7:operator >/dev/null
+  centos=el7:operator
+  install_user=(--user clusterops)
+  install_command=(sudo -n -- "${install_command[@]}" openssh-server)
+  ssh-keygen -q -t ed25519 -N '' -f "$secret/operator-key"
+  SSH_CHECK=(ssh -i "$secret/operator-key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$secret/operator-hosts")
+  invoke() {
+    local host=$1 command address; shift
+    address=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$host")
+    printf -v command '%q ' "$@"
+    "${SSH_CHECK[@]}" "clusterops@$address" "test \"\$(id -u)\" -gt 0 && sudo -n -- $command"
+  }
+fi
+docker create --name mgmt-install "${install_user[@]}" --network none -v "$PWD:/project:ro" -v "$PWD/yum-staging:/repo:ro" -v "$PWD/runtime-repo:/runtime:ro" "$centos" "${install_command[@]}"
 docker start -a mgmt-install
 [[ $(docker inspect -f '{{.State.ExitCode}}' mgmt-install) == 0 ]]
 docker commit mgmt-install el7-ambari:installer >/dev/null
@@ -32,13 +50,23 @@ for ((n=1; n<=count; n++)); do
     -v "$PWD/lab-jdk17:/opt/jdk17:ro" -v "$PWD/runtimes/postgresql.jar:/opt/cluster/postgresql.jar:ro" -v "$PWD/certs:/etc/pki/bigtop:ro" el7-ambari:installer sleep infinity
 done
 server=${hosts[0]}
+if [[ ${OPERATOR_TEST:-0} == 1 ]]; then
+  for host in "${hosts[@]}"; do
+    docker exec "$host" install -d -o clusterops -g clusterops -m 0700 /home/clusterops/.ssh
+    docker cp "$secret/operator-key.pub" "$host:/home/clusterops/.ssh/authorized_keys"
+    docker exec "$host" bash -ec 'ssh-keygen -A; /usr/sbin/sshd -o PermitRootLogin=no -o PasswordAuthentication=no'
+    address=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$host")
+    printf '%s %s\n' "$address" "$(docker exec "$host" cat /etc/ssh/ssh_host_ed25519_key.pub)" >> "$secret/operator-hosts"
+    "${SSH_CHECK[@]}" "clusterops@$address" 'id; test "$(id -u)" -gt 0'
+  done
+fi
 printf '%s\n' "$password" | docker exec -i "$server" bash -c 'umask 077; cat > /root/pg.pass'
 docker exec "$server" bash -c 'umask 077; echo "machine localhost login admin password admin" > /root/test.netrc'
-if [[ ${NATIVE_STACK:-0} == 1 ]]; then docker exec "$server" python3 /kit/ops/ambari-stack-el7.py; fi
+if [[ ${NATIVE_STACK:-0} == 1 ]]; then invoke "$server" /usr/bin/python3 /kit/ops/ambari-stack-el7.py; fi
 for pass in 1 2; do
-  docker exec "$server" bash /kit/ops/manage-server.sh setup /kit pg.lab.test 5432 ambari ambari /root/pg.pass /etc/pki/bigtop/ca.crt
-  for host in "${hosts[@]}"; do docker exec "$host" bash /kit/ops/manage-server.sh agent "$server"; done
-  docker exec "$server" bash /kit/ops/manage-server.sh verify http://localhost:8080 /root/test.netrc "${hosts[@]}"
+  invoke "$server" /bin/bash /kit/ops/manage-server.sh setup /kit pg.lab.test 5432 ambari ambari /root/pg.pass /etc/pki/bigtop/ca.crt
+  for host in "${hosts[@]}"; do invoke "$host" /bin/bash /kit/ops/manage-server.sh agent "$server"; done
+  invoke "$server" /bin/bash /kit/ops/manage-server.sh verify http://localhost:8080 /root/test.netrc "${hosts[@]}"
 done
 docker exec "$server" curl -fsS --netrc-file /root/test.netrc 'http://localhost:8080/api/v1/hosts?fields=Hosts/host_state' > management-evidence/hosts.json
 jq -e --argjson count "$count" '(.items|length)==$count and all(.items[]; .Hosts.host_state=="HEALTHY")' management-evidence/hosts.json

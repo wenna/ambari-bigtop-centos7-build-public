@@ -37,7 +37,7 @@ curl --retry 5 -fsS "$repo/app/repodata/repomd.xml" -o /dev/null
 rpm --import "$repo/os/keys/RPM-GPG-KEY-CentOS-7" "$repo/os/keys/RPM-GPG-KEY-EPEL-7"
 yum -q -y install openssh-server openssh-clients psmisc nmap-ncat procps-ng util-linux rsync which hostname
 ssh-keygen -A
-/usr/sbin/sshd
+pgrep -x sshd >/dev/null || /usr/sbin/sshd -o PermitRootLogin=no
 mkdir -p /disk1/hdfs/data /disk1/yarn/local /data/bigtop
 NODE
 done
