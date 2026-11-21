@@ -65,7 +65,11 @@ ssh() {
     if [[ ${block_host:-} && "$*" == *"@$block_host "* && ${!#} == *ambari-bootstrap.sh* ]]; then return 65; fi
 }
 export -f ssh
+sed 's/^SSH_USER=clusterops$/SSH_USER=root/' "$tmp/site.env" > "$tmp/root.env"
+if bash "$project/ops/deploy-cluster.sh" "$tmp/root.env" ambari; then echo "Accepted root SSH login" >&2; exit 1; fi
+[[ ! -s $trace ]]
 bash "$project/ops/deploy-cluster.sh" "$tmp/site.env" ambari
+grep -F 'test "$(id -u)" -gt 0 && sudo -n --' "$trace" >/dev/null
 grep -E 'worker.site.test .*provision-node.sh .*--ambari-only agent' "$trace"
 grep -E 'mgmt.site.test .*provision-node.sh .*--ambari-only server' "$trace"
 grep -E 'mgmt.site.test .*manage-server.sh verify .*worker.site.test mgmt.site.test' "$trace"

@@ -8,7 +8,7 @@
 
 从普通部署账号（示例 `clusterops`）启动控制机安装命令，通过同名普通账号登录各节点。向导使用 **Perform manual registration** 复用已注册 Agent，SSH 私钥栏留空。控制机及远端 SSH 会话的 UID 均须大于 0。当前系统 RPM 交付仍通过 sudo 安装软件、写入系统目录和注册服务，Ambari Agent 也承担特权安装任务。运维人员直接执行交付脚本，系统操作由脚本非交互提权。
 
-**验收进度**　三台 CentOS 7.9 x86_64 容器已通过本地仓库校验、手工注册和主机确认。Chromium 选中七项服务、分配主从角色、核对账号，并对外部 PostgreSQL 执行了 TLS 连接测试。通过 **Review** 后，Ambari 创建了 `Install Services` 请求，页面显示正在安装 DataNode。最终启动结果见下方验收说明。[浏览器及后台任务记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44769937053)
+**页面向导已在三台 CentOS 7.9 x86_64 主机容器上走到 Summary。** 选定七项服务后，YARN 的包清单会自动拉入内嵌 Timeline 存储所需的 HBase 2.4.17 RPM。无需在服务选择页另选 HBase。
 
 1. 按 [管理面安装手册](AMBARI.zh-CN.md) 第 1、2 节校验交付文件、准备 FQDN 和正反向解析、SSH、时钟、数据盘、服务账号、防火墙、Java 版本和数据库。运行 `bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env ambari`，确认清单里的每个 Agent 都已注册为 `HEALTHY`。在新建集群前保留这份主机清单。
 2. 将包中 `yum-staging/` 和 `runtime-repo/` 的完整目录分别发布到内网应用仓库和系统依赖仓库。应用仓库的根目录必须直接包含 `repodata/repomd.xml`。系统依赖仓库需在每台机器上启用并配置交付的 CentOS/EPEL 公钥。逐台核对 `yum repolist enabled`，确认软件来自预期仓库。
@@ -51,4 +51,4 @@
 3. 在 **Review** 对照清单核对服务、主机、仓库和数据库，再提交安装。在 **Install, Start and Test** 展开每台主机的任务；记录失败任务的主机名、组件和首个错误。处理依赖、权限或配置后从界面重试。出现失败或仅部分启动时，保留当前请求记录和数据目录。
 4. 在 **Summary** 完成向导，进入服务页和后台操作，核对服务进程为 `STARTED`，客户端为 `INSTALLED`。逐项运行服务检查，提交现场 YARN、Hive on Tez 和 Spark on YARN 作业并核对输出。需高可用时另行完成 NameNode 和 ResourceManager 的 HA 配置及切换验收；首次安装完成并不代表 HA 已生效。
 
-**本版实测结果：生产验收未通过。** 取消 Router 后，三节点共 44 个 INSTALL 任务全部完成。启动阶段 8 个任务完成、1 个失败、11 个中止。ZooKeeper、NameNode 和 DataNode 启动成功。失败项为 YARN 的 `TIMELINE_READER`，它调用内嵌 HBase 的 `/usr/bigtop/3.3.0/usr/lib/hbase/bin/hbase-daemon.sh` 时找不到文件。随后 ResourceManager、Hive 和 Spark 等启动任务中止，7 项服务检查只完成 1 项。向导提示 “Installed and started the services with some warnings” 时，须查看 **Background Operations → Start Services**，按失败处理。这一版本仍欠缺 Web 路线全部服务启动成功及 Summary 验收。[三节点实际运行和任务清单](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44773214491)
+**三节点实测结果**　44 个安装任务、20 个启动任务和 7 个服务检查均为 COMPLETED。Timeline Reader、ResourceManager、Hive 和 Spark 已启动。此前缺少 `hbase-daemon.sh` 的候选包应保留原验收结论，部署时应选取带 `manifests/ats-hbase.sha256` 的新版本。该版本包含基础包、Master 和 RegionServer 三个 HBase RPM。[浏览器及组件状态验收](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44855616272)

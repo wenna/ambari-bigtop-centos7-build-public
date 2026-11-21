@@ -39,7 +39,7 @@ fi
 docker create --name mgmt-install "${install_user[@]}" --network none -v "$PWD:/project:ro" -v "$PWD/yum-staging:/repo:ro" -v "$PWD/runtime-repo:/runtime:ro" "$centos" "${install_command[@]}"
 docker start -a mgmt-install
 [[ $(docker inspect -f '{{.State.ExitCode}}' mgmt-install) == 0 ]]
-docker commit mgmt-install el7-ambari:installer >/dev/null
+docker commit --change 'USER 0' mgmt-install el7-ambari:installer >/dev/null
 hosts=()
 count=${AGENT_COUNT:-10}
 [[ $count =~ ^[1-9][0-9]*$ ]]
