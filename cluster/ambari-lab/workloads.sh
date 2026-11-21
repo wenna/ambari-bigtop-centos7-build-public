@@ -68,6 +68,16 @@ for job in hive_job spark_job; do
   (set -e; "$job")
   result=$?
   set -e
-  if (( result )); then echo "$job failed" >&2; status=1; fi
+  if (( result )); then
+    echo "$job failed" >&2
+    if [[ $job == spark_job ]]; then
+      app=$(yarn application -list -appTypes SPARK -appStates ALL | awk -v name="ambari_$tag" '$2 == name {print $1; exit}')
+      if [[ $app =~ ^application_[0-9]+_[0-9]+$ ]]; then
+        yarn logs -applicationId "$app" > "$work/spark-diagnostics" 2>&1 || true
+        grep -Ei 'Caused by:|Exception|ERROR |Permission denied|No space' "$work/spark-diagnostics" | tail -35 || true
+      fi
+    fi
+    status=1
+  fi
 done
 exit "$status"
