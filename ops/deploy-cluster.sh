@@ -6,6 +6,15 @@ config=$(realpath "${1:?provide trusted site.env}")
 stage=${2:?choose ambari, prepare, time-packages, preflight, packages, management, data or all}
 source "$config"
 here=$(cd "$(dirname "$0")/.." && pwd)
+export_dir=
+case ${AMBARI_ACCESS_MODE:-existing} in managed|existing) ;; *) echo "Invalid AMBARI_ACCESS_MODE" >&2; exit 64 ;; esac
+if [[ ${AMBARI_ACCESS_MODE:-existing} == managed && $stage != ambari ]]; then
+    echo "The managed deployment account is authorized for the ambari stage only" >&2; exit 64
+fi
+if (( $# > 2 )); then
+    [[ $# == 4 && $3 == --export-actions && $stage == ambari && -d $4 ]] || exit 64
+    export_dir=$(realpath "$4")
+fi
 case $stage in ambari|prepare|time-packages|preflight|packages|management|data|all) ;; *) exit 64 ;; esac
 [[ ${PREPARE_OS:-0} =~ ^[01]$ ]] || { echo "PREPARE_OS must be 0 or 1" >&2; exit 64; }
 [[ $SSH_USER =~ ^[a-z_][a-z0-9_-]*$ && $KIT_ROOT =~ ^/[-a-zA-Z0-9_./]+$ ]]
@@ -50,17 +59,38 @@ SSH_KNOWN_HOSTS=${SSH_KNOWN_HOSTS:-}
 [[ $SSH_PORT =~ ^[1-9][0-9]{0,4}$ ]] && (( SSH_PORT <= 65535 )) || exit 64
 ssh_opts=(-p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10)
 if [[ -n $SSH_IDENTITY_FILE ]]; then
-    test -r "$SSH_IDENTITY_FILE"
+    [[ -n $export_dir ]] || test -r "$SSH_IDENTITY_FILE"
     ssh_opts+=(-o IdentitiesOnly=yes -i "$SSH_IDENTITY_FILE")
 fi
 if [[ -n $SSH_KNOWN_HOSTS ]]; then
-    test -r "$SSH_KNOWN_HOSTS"
+    [[ -n $export_dir ]] || test -r "$SSH_KNOWN_HOSTS"
     ssh_opts+=(-o "UserKnownHostsFile=$SSH_KNOWN_HOSTS")
 fi
 remote() {
     local host=$1 command
     shift
-    printf -v command '%q ' "$@"
+    LC_ALL=C printf -v command '%q ' "$@"
+    if [[ -n $export_dir || ( $stage == ambari && ${AMBARI_ACCESS_MODE:-existing} == managed ) ]]; then
+        local recipe digest
+        recipe=$(mktemp "$SNAPSHOT/action.XXXXXXXX")
+        if [[ $1 == bash && ${2:-} == -s ]]; then
+            printf "%s<<'AMBARI_APPROVED_STDIN'\n" "$command" > "$recipe"
+            cat >> "$recipe"
+            printf 'AMBARI_APPROVED_STDIN\n' >> "$recipe"
+        else
+            printf 'exec %s\n' "$command" > "$recipe"
+        fi
+        digest=$(sha256sum "$recipe")
+        digest=${digest%% *}
+        if [[ -n $export_dir ]]; then
+            mkdir -p "$export_dir/$host"
+            mv "$recipe" "$export_dir/$host/$digest"
+        else
+            rm -f "$recipe"
+            ssh -n "${ssh_opts[@]}" "$SSH_USER@$host" "test \"\$(id -u)\" -gt 0 && sudo -n -- /usr/local/sbin/bigtop-ambari-action $digest"
+        fi
+        return
+    fi
     ssh "${ssh_opts[@]}" "$SSH_USER@$host" "test \"\$(id -u)\" -gt 0 && sudo -n -- $command"
 }
 if [[ $stage == ambari && ${PREPARE_OS:-0} == 1 ]]; then

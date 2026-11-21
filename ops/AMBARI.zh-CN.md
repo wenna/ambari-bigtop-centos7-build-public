@@ -12,6 +12,8 @@ mkdir kit && cat ambari-native-el7.tar.part-* | tar xf - -C kit
 
 ## 1. 准备主机和数据库
 
+从[现场配置与安装操作单](FIELD-SETUP.zh-CN.md) 复制模板，填好现场参数，以已有普通管理账号运行 `bootstrap-access.sh` 完成部署账号、公钥和非交互授权。完成该操作单第 1–3 节后，本手册第 2 节的管理面安装命令即可使用。
+
 按 `ops/README.md` 的安装前准备核对每台主机的 FQDN、机架、免密 SSH、sudo、NTP、挂载点和防火墙。将解包并校验过的同一份软件挂载到所有节点的 `KIT_ROOT`。服务器上的 yum 在 Ambari 任务中使用系统的仓库设置。由现场管理员停用已失效的 CentOS 7 镜像和会提供同名 RPM 的其他仓库，以 `yum repolist enabled` 和 `yum list --showduplicates` 核对实际来源。应用 RPM 通过交付摘要验证，系统依赖保留 CentOS/EPEL 签名。
 
 准备两个独立的 PostgreSQL 库及账号，管理库供 Ambari，Hive 库供 Metastore。预置数据库 CA、管理库口令文件、Ambari API 的 netrc 凭据，以及两个 NameNode 所需的双向 SSH fencing 密钥。数据库 TLS 地址的域名须与证书相符。以下命令在可信部署账户下运行，密码文件仅其所有者可读。

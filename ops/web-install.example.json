@@ -1,0 +1,16 @@
+{
+  "cluster_name": "prod",
+  "application_repo": "https://yum.prod.example.internal/bigtop/3.3.0/el7/x86_64/",
+  "runtime_repo": "https://yum.prod.example.internal/runtime/el7/x86_64/",
+  "hive_database": "hive",
+  "namenode": "bd001",
+  "secondary_namenode": "bd002",
+  "resourcemanager": "bd002",
+  "timeline_reader": "bd002",
+  "timeline_server": "bd002",
+  "registry_dns": "bd002",
+  "namenode_metadata_dirs": ["/data/bigtop/hdfs/name"],
+  "nm_log_dirs": ["/disk1/yarn/logs"],
+  "client_slots": ["bd004", "bd005"],
+  "queue": "default"
+}
