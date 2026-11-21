@@ -19,10 +19,10 @@ mkdir kit && cat ambari-native-el7.tar.part-* | tar xf - -C kit
 生成 `hosts.csv` 并按真实角色调整。复制 `ops/site.env.example` 和 `production/site.example.json`，在 `site.env` 填清单路径、交付摘要、磁盘、SSH、时钟、管理库和 API 参数。在 `site.json` 配置 nameservice、Hive 数据库 JDBC、磁盘和 YARN 资源。本版原生 Stack 默认上传 Tez 到 `/bigtop/apps/3.3.0/tez/tez.tar.gz`，请将 `tez_archive` 设为该路径。
 
 ```bash
-install -d -m 0700 /etc/bigtop-deploy
-python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal > /etc/bigtop-deploy/hosts.csv
-cp ops/site.env.example /etc/bigtop-deploy/site.env
-cp production/site.example.json /etc/bigtop-deploy/site.json
+install -d -m 0700 $HOME/bigtop-deploy
+python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal > $HOME/bigtop-deploy/hosts.csv
+cp ops/site.env.example $HOME/bigtop-deploy/site.env
+cp production/site.example.json $HOME/bigtop-deploy/site.json
 ```
 
 ## 2. 只安装 Ambari 管理面
@@ -30,7 +30,7 @@ cp production/site.example.json /etc/bigtop-deploy/site.json
 在部署机的交付根目录执行：
 
 ```bash
-bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env ambari
+bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env ambari
 ```
 
 这个阶段在清单中标记 `ambari-server` 的节点安装 Server，在每个节点安装 Agent，使用 Java 17 启动管理面，保留 Java 8 给数据服务。脚本在 Server 首次启动前设置 EL7 的 BIGTOP 服务 RPM 清单，连接 PostgreSQL 并等待清单中的全部 Agent 注册为 `HEALTHY`。首次登录后在受限管理网中轮换管理员密码，同步更新 API netrc。记录管理节点地址、服务账号和证书。
@@ -39,16 +39,16 @@ bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env ambari
 
 完成第 2 节后，请选择一种新建集群方式。使用浏览器时，直接转到下方“使用 Ambari Web 向导”。使用清单自动映射角色时，执行以下 Blueprint 命令。两种方式仅需提交一种。
 
-在 Ambari Server 上准备 `/etc/bigtop-deploy/hosts.csv`、填好的 `site.json`、Hive 库口令文件 `hive-db.password` 和该机的 `ambari.netrc`，并进入本机的交付根目录。下面使用 loopback API；启用了 HTTPS 时改成有受信证书的地址。仓库 URL 应能从所有 Agent 访问。示例的 file URL 要求每台主机使用完全一致的只读挂载路径；也可填写内部 HTTP(S) 仓库地址。
+在 Ambari Server 上准备 `$HOME/bigtop-deploy/hosts.csv`、填好的 `site.json`、Hive 库口令文件 `hive-db.password` 和该机的 `ambari.netrc`，并进入本机的交付根目录。下面使用 loopback API；启用了 HTTPS 时改成有受信证书的地址。仓库 URL 应能从所有 Agent 访问。示例的 file URL 要求每台主机使用完全一致的只读挂载路径；也可填写内部 HTTP(S) 仓库地址。
 
 ```bash
 umask 077
-s=/etc/bigtop-deploy
+s=$HOME/bigtop-deploy
 chmod 600 "$s/hive-db.password" "$s/ambari.netrc"
 python3 ops/ambari-blueprint.py --inventory "$s/hosts.csv" --site "$s/site.json" \
   --blueprint prod-bigtop --hive-password-file "$s/hive-db.password" --out "$s/native"
 bash ops/ambari-provision.sh http://localhost:8080 "$s/ambari.netrc" prod prod-bigtop \
-  "$s/native/blueprint.json" "$s/native/cluster.json" file:///srv/bigtop-kit/yum-staging
+  "$s/native/blueprint.json" "$s/native/cluster.json" file:///srv/bigtop-kit/yum-staging --state-dir "$s/native-state"
 ```
 
 蓝图依据 slot、机架、角色和容量生成主机映射。`blueprint.json` 可以审阅。`cluster.json` 包含 Hive 密码，请限制访问，勿上传到工单、Git 或日志。控制器向 Ambari 注册本地仓库版本、蓝图和集群，然后等待 Ambari 的请求完成。登录 Web UI，打开 **后台操作** 查看各主机的 INSTALL、START 和日志，再到 **Services** 查看 HDFS、YARN、MapReduce2、ZooKeeper、Hive、Tez、Spark。客户端组件通常为 `INSTALLED`，服务进程应为 `STARTED`。Timeline 的两个可选组件按蓝图只安装。
@@ -63,12 +63,11 @@ bash ops/ambari-provision.sh http://localhost:8080 "$s/ambari.netrc" prod prod-b
 
 ```bash
 sha256sum /opt/cluster/postgresql.jar /usr/bigtop/3.3.0/usr/lib/hive/lib/postgresql{,-9.4.1208.jre7}.jar
-sudo -u hive env HADOOP_OPTS=-verbose:class /usr/bigtop/3.3.0/usr/lib/hive/bin/schematool \
-  -dbType postgres -info 2>&1 | grep -E 'Loaded org.postgresql.Driver from|schema version'
+bash ops/check-hive-driver.sh
 ```
 
 **作业与切换。** Ambari Web 的 Hive 和 Spark 服务检查通过后，另用业务测试账号执行带 GROUP BY 的 Hive 查询和 Spark cluster 模式作业，核对 YARN 应用编号和 HDFS 输出。安排停机演练时记录活动 NN/RM、停机时刻、对端接管时刻和原节点恢复备用状态的时刻。普通业务账号运行作业，HA 管理命令使用获授权的 HDFS 和 YARN 身份。
 
-同一命令追加 `--check` 可读取组件状态，不下发新任务。控制器在 `/var/lib/bigtop-deploy/native/集群名` 保留请求编号；在管理进程中断后复用相同输入可继续等待。Ambari 报错时，在后台操作中记录请求、任务、主机和首个错误，在解决缺包、文件权限、数据库或名称解析问题后于 Ambari 内重试。保留已有 NameNode、JournalNode、ZooKeeper 和元数据库的数据目录。
+同一命令追加 `--check` 可读取组件状态，不下发新任务。控制器在 `$HOME/bigtop-deploy/native-state/集群名` 保留请求编号；在管理进程中断后复用相同输入可继续等待。Ambari 报错时，在后台操作中记录请求、任务、主机和首个错误，在解决缺包、文件权限、数据库或名称解析问题后于 Ambari 内重试。保留已有 NameNode、JournalNode、ZooKeeper 和元数据库的数据目录。
 
 生产验收应留存两台 NN 和 RM 的状态、真实的 HDFS 读写、YARN 作业、Hive on Tez 查询及 Spark on YARN 输出，再做现场故障切换。当前熟悉的 20/100 Agent 心跳验收仅覆盖管理面。此配置默认采用 Hadoop simple 认证。开启多租户前需要按站点要求配置 Kerberos、TLS 和授权，并验证允许与拒绝访问的结果。

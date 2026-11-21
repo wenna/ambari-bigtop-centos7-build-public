@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Orchestration host: bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env STAGE
 set -euo pipefail
+(( EUID != 0 )) || { echo "Run the deployment controller as a non-root operator" >&2; exit 64; }
 config=$(realpath "${1:?provide trusted site.env}")
 stage=${2:?choose ambari, prepare, time-packages, preflight, packages, management, data or all}
 source "$config"
@@ -8,6 +9,7 @@ here=$(cd "$(dirname "$0")/.." && pwd)
 case $stage in ambari|prepare|time-packages|preflight|packages|management|data|all) ;; *) exit 64 ;; esac
 [[ ${PREPARE_OS:-0} =~ ^[01]$ ]] || { echo "PREPARE_OS must be 0 or 1" >&2; exit 64; }
 [[ $SSH_USER =~ ^[a-z_][a-z0-9_-]*$ && $KIT_ROOT =~ ^/[-a-zA-Z0-9_./]+$ ]]
+[[ $SSH_USER != root ]] || { echo "SSH_USER must be a non-root account" >&2; exit 64; }
 [[ $MANIFEST_SHA256 =~ ^[[:xdigit:]]{64}$ ]]
 if [[ $stage == ambari ]]; then
     SNAPSHOT=$(mktemp -d)
@@ -59,7 +61,7 @@ remote() {
     local host=$1 command
     shift
     printf -v command '%q ' "$@"
-    ssh "${ssh_opts[@]}" "$SSH_USER@$host" "sudo -n -- $command"
+    ssh "${ssh_opts[@]}" "$SSH_USER@$host" "test \"\$(id -u)\" -gt 0 && sudo -n -- $command"
 }
 if [[ $stage == ambari && ${PREPARE_OS:-0} == 1 ]]; then
     while read -r ip; do

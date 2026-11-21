@@ -14,17 +14,17 @@ mkdir kit
 cat ambari-bigtop-el7.tar.part-* | tar xf - -C kit
 (cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS)
 cd kit
-install -d -m 0700 /etc/bigtop-deploy
-cp ops/site.env.example /etc/bigtop-deploy/site.env
-cp production/site.example.json /etc/bigtop-deploy/site.json
+install -d -m 0700 $HOME/bigtop-deploy
+cp ops/site.env.example $HOME/bigtop-deploy/site.env
+cp production/site.example.json $HOME/bigtop-deploy/site.json
 # 例如 20 台；100 台改成 --nodes 100。仅在新建清单时执行。
-python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal > /etc/bigtop-deploy/hosts.csv
+python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal > $HOME/bigtop-deploy/hosts.csv
 ```
 
 按下面三节填写参数并完成现场准备。在能连接每台主机的 Linux 管理机，从交付根目录运行一键安装：
 
 ```bash
-bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env all
+bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env all
 ```
 
 `all` 依次执行现场预检、离线 RPM 安装、管理面注册、数据服务初始化和就绪检查。设置 `PREPARE_OS=1` 时会先执行已选择的主机准备动作。可分步运行 `prepare`、`preflight`、`packages`、`management`、`data`。第一次上线宜先用 `production/start-cluster.sh --action plan` 核对目标，再运行 `all`。最终数据服务由 systemd 管理，Ambari 提供 Server、Agent、API 和心跳。如要用 Ambari 作为数据服务的配置及生命周期管理者，应在独立环境走 BIGTOP Stack 的建群流程，避免两个管理工具同时启停同一个进程。
@@ -59,7 +59,7 @@ bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env all
 | site.json 存储和身份 | nameservice、state_dir、datanode_dirs、nm_local_dirs、log_dir、run_dir、fence_user、fence_port、fence_key、accounts、proxy_groups |
 | site.json 计算和 SQL | nm_memory_mb、nm_vcores、task_memory_mb、tez_archive、pg_url、pg_user、hms_keystore；node_overrides 可按 slot 覆盖个别机器的数据盘、YARN 本地盘、NM 内存和核数 |
 
-站点文件保存在软件包外部。site.env 是可执行的 Bash 配置，只允许受信维护账号写。数值以物理资源减去操作系统和常驻进程预留量后填写。站点统一的挂载预检列表应只列同类机器共有的挂载点；不同盘型的机器另外逐机执行 `bash ops/check-node.sh /etc/bigtop-deploy/hosts.csv /实际挂载点`，清单需在该机可读。示例异构覆盖：
+站点文件保存在软件包外部。site.env 是可执行的 Bash 配置，只允许受信维护账号写。数值以物理资源减去操作系统和常驻进程预留量后填写。站点统一的挂载预检列表应只列同类机器共有的挂载点；不同盘型的机器另外逐机执行 `bash ops/check-node.sh $HOME/bigtop-deploy/hosts.csv /实际挂载点`，清单需在该机可读。示例异构覆盖：
 
 ```json
 "node_overrides": {
@@ -102,10 +102,10 @@ ssh-keygen -t ed25519 -f ~/.ssh/bigtop-deploy
 # 先通过控制台或资产系统核对服务器 host key 指纹，再写入受信 known_hosts。
 ssh-copy-id -p 22 -i ~/.ssh/bigtop-deploy.pub clusterops@实际FQDN
 ssh -p 22 -i ~/.ssh/bigtop-deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
-  clusterops@实际FQDN 'hostname -f; sudo -n id -u'
+  clusterops@实际FQDN 'hostname -f; id -un; id -u'
 ```
 
-输出应包括预期 FQDN 和 UID 0。准备模式用 IP 首次连接、随后用 FQDN，两个目标都要建立主机信任；非标准端口的 known_hosts 条目使用 `[主机]:端口`。私钥权限 0600，控制机不得把部署私钥复制到整个集群。已有统一运维平台可通过 SSH 配置管理堡垒机和认证策略。HDFS 的 sshfence 使用独立的服务密钥和两台 NameNode 之间的连接，须按生产配置说明单独核验。
+输出应包括预期 FQDN、部署账号和非零 UID。部署控制器也须由非零 UID 启动。当前控制器会通过 sudo 执行远端 shell 和系统安装程序，授权执行这些 shell 等价于授予主机管理员权限。sudo 授权由站点通过受管镜像或配置管理预置。脚本使用非交互模式，未获授权时退出。准备模式用 IP 首次连接、随后用 FQDN，两个目标都要建立主机信任。非标准端口的 known_hosts 条目使用 `[主机]:端口`。私钥权限 0600，控制机不得把部署私钥复制到整个集群。HDFS 的 sshfence 使用独立的服务密钥和两台 NameNode 之间的连接，须按生产配置说明单独核验。
 
 **时钟同步。** NTP_SOURCES 填企业批准的 NTP 主机名或地址，各节点可访问 UDP 123。若已有 chronyd 同步，填写允许偏差（秒）后直接跑 preflight。全新最小镜像可启用 prepare 自动离线安装 chrony、配置时间源并等待同步。也可单独执行 time-packages，再按企业规范配置 /etc/chrony.conf 中的 server 条目和 chronyd 服务。在有 ntpd、配置集中下发或时差很大的机器上先协调切换窗口。核对 `chronyc -n sources -v` 的已选源和 `chronyc tracking` 的校正值；机器时区按企业规范统一。
 
@@ -136,14 +136,14 @@ CREATE DATABASE hive OWNER hive_catalog ENCODING 'UTF8' TEMPLATE template0;
 ## 3. 预演、一键执行与重试
 
 ```bash
-python3 ops/render-layout.py /etc/bigtop-deploy/hosts.csv --site /etc/bigtop-deploy/site.json
-bash production/start-cluster.sh --inventory /etc/bigtop-deploy/hosts.csv \
-  --site /etc/bigtop-deploy/site.json --snapshot /var/lib/bigtop-deploy/site-001 --action plan
+python3 ops/render-layout.py $HOME/bigtop-deploy/hosts.csv --site $HOME/bigtop-deploy/site.json
+bash production/start-cluster.sh --inventory $HOME/bigtop-deploy/hosts.csv \
+  --site $HOME/bigtop-deploy/site.json --snapshot $HOME/bigtop-deploy/site-001 --action plan
 # 已准备好主机时可以先单独检查
-bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env preflight
+bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env preflight
 # 从管理机安装所有列入清单的节点。需要保留日志时使用 pipefail。
 set -o pipefail
-bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env all 2>&1 | tee bigtop-install.log
+bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env all 2>&1 | tee bigtop-install.log
 ```
 
 preflight 检查目标系统、名称解析、SSH、sudo、交付摘要、系统包冲突、预期挂载、磁盘余量和 chrony 同步。发现问题保留主机、阶段和错误，修正根因后复用原参数。SELinux/防火墙状态会报告，仍需按真实流向检查连通性。确认已有 Hadoop、HDP/CDH、受管 Ambari、ZooKeeper、yum 事务、数据库对象和服务端口的归属；已有数据需要先备份并按迁移或接管流程操作。分阶段失败后不得清空 NN、JN、DN、ZK 或数据库目录来绕过保护。

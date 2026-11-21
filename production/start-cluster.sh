@@ -12,6 +12,10 @@ while (( $# )); do
 done
 [[ -n $inventory && -n $site && -n $snapshot && ($action == plan || $action == apply) ]] ||
   { echo "Usage: $0 --inventory hosts.csv --site site.json --snapshot directory --action plan|apply" >&2; exit 64; }
+if [[ $action == apply ]]; then
+  (( EUID != 0 )) || { echo "Run the deployment controller as a non-root operator" >&2; exit 64; }
+  [[ ${SSH_USER:?Set SSH_USER to the deployment account} != root ]] || { echo "SSH_USER must be a non-root account" >&2; exit 64; }
+fi
 python3 "$here/render.py" --inventory "$inventory" --site "$site" --out "$snapshot"
 tmp=$(mktemp -d)
 cleanup() { [[ -z ${lock_pid:-} ]] || kill "$lock_pid" 2>/dev/null || true; rm -rf -- "$tmp"; }
@@ -41,7 +45,7 @@ if [[ -n ${SSH_KNOWN_HOSTS:-} ]]; then [[ -r $SSH_KNOWN_HOSTS ]]; ssh_opts+=(-o 
 remote() {
   local target=$1 command; shift
   printf -v command '%q ' "$@"
-  ssh "${ssh_opts[@]}" "$SSH_USER@${HOST[$target]}" "sudo -n -- $command"
+  ssh "${ssh_opts[@]}" "$SSH_USER@${HOST[$target]}" "test \"\$(id -u)\" -gt 0 && sudo -n -- $command"
 }
 node() { local slot=$1; shift; remote "$slot" timeout -k 15s 360s "$helper" "$@"; }
 client() { local slot=$1 user=$2; shift 2; node "$slot" client "$user" "$@"; }

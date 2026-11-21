@@ -36,5 +36,5 @@ jobs:
           (cd kit && sha256sum SHA256SUMS) > kit-manifest.sha256
           tar cf - -C kit . | split -b 950M -d -a 2 - delivery/ambari-native-el7.tar.part-
           (cd delivery && sha256sum *.part-* > SHA256SUMS && sha256sum -c SHA256SUMS)
-          cat delivery/*.part-* | python3 scripts/check-operations-stream.py 287
+          cat delivery/*.part-* | python3 scripts/check-operations-stream.py 287 63
           gh release create "el7-ambari-native-rc-$GITHUB_RUN_ID" --draft --target "$GITHUB_SHA" --title 'CentOS 7.9 x86_64 · Ambari 原生安装候选包' --notes '安装入口见 INSTALL.zh-CN.md。先执行 ambari 阶段，再通过 Ambari Blueprints 部署 BIGTOP。此草稿为候选包；发布前请核对对应原生安装及故障切换验收。' delivery/* kit-manifest.sha256 kit/INSTALL.zh-CN.md kit/manifests/runtime-versions.tsv kit/manifests/application-rpm-requires.txt

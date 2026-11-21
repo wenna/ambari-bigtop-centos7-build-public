@@ -4,9 +4,13 @@
 
 ## 进入向导前
 
+由站点在系统镜像或配置管理中禁用 root SSH 登录（`PermitRootLogin no`），并预置专用部署账号、SSH 公钥和非交互 sudo 授权。保留 SSH 指纹核验。服务端的数据库密码文件和 API 凭据可以由站点密钥管理系统下发。
+
+从普通部署账号（示例 `clusterops`）启动控制机安装命令，通过同名普通账号登录各节点。向导使用 **Perform manual registration** 复用已注册 Agent，SSH 私钥栏留空。控制机及远端 SSH 会话的 UID 均须大于 0。当前系统 RPM 交付仍通过 sudo 安装软件、写入系统目录和注册服务，Ambari Agent 也承担特权安装任务。运维人员直接执行交付脚本，系统操作由脚本非交互提权。
+
 **验收进度**　三台 CentOS 7.9 x86_64 容器已通过本地仓库校验、手工注册和主机确认。Chromium 选中七项服务、分配主从角色、核对账号，并对外部 PostgreSQL 执行了 TLS 连接测试。通过 **Review** 后，Ambari 创建了 `Install Services` 请求，页面显示正在安装 DataNode。最终启动结果见下方验收说明。[浏览器及后台任务记录](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/44769937053)
 
-1. 按 [管理面安装手册](AMBARI.zh-CN.md) 第 1、2 节校验交付文件、准备 FQDN 和正反向解析、SSH、时钟、数据盘、服务账号、防火墙、Java 版本和数据库。运行 `bash ops/deploy-cluster.sh /etc/bigtop-deploy/site.env ambari`，确认清单里的每个 Agent 都已注册为 `HEALTHY`。在新建集群前保留这份主机清单。
+1. 按 [管理面安装手册](AMBARI.zh-CN.md) 第 1、2 节校验交付文件、准备 FQDN 和正反向解析、SSH、时钟、数据盘、服务账号、防火墙、Java 版本和数据库。运行 `bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env ambari`，确认清单里的每个 Agent 都已注册为 `HEALTHY`。在新建集群前保留这份主机清单。
 2. 将包中 `yum-staging/` 和 `runtime-repo/` 的完整目录分别发布到内网应用仓库和系统依赖仓库。应用仓库的根目录必须直接包含 `repodata/repomd.xml`。系统依赖仓库需在每台机器上启用并配置交付的 CentOS/EPEL 公钥。逐台核对 `yum repolist enabled`，确认软件来自预期仓库。
 3. 从 **Ambari Server 和每台 Agent** 检查仓库能访问。以下变量替换为现场地址。此命令只读取仓库元数据。
 
