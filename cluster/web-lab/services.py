@@ -68,12 +68,12 @@ def assign_masters(page, hosts):
             expect(dropdown).to_contain_text(host)
 
     zk = rows.filter(has=page.locator('[data-qa="component-name"]', has_text="ZooKeeper Server"))
-    while zk.count() < len(hosts):
+    while zk.count() < 3:
         count = zk.count()
         zk.locator(".ZOOKEEPER_SERVER-add").last.click()
         expect(zk).to_have_count(count + 1)
     assignments = zk.locator(".selected-item").all_inner_texts()
-    if len(assignments) != len(hosts) or not all(any(host in s for s in assignments) for host in hosts):
+    if len(assignments) != 3 or len({s.strip() for s in assignments}) != 3:
         raise RuntimeError(f"Unexpected ZooKeeper quorum {assignments}")
 
 

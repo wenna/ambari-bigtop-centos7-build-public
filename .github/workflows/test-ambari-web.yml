@@ -4,12 +4,17 @@ permissions:
   contents: write # Download the frozen repositories from draft releases.
 jobs:
   web:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        nodes: [3, 4]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       NATIVE_STACK: '1'
       OPERATOR_TEST: '1'
-      AGENT_COUNT: '3'
+      AGENT_COUNT: ${{ matrix.nodes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -30,7 +35,7 @@ jobs:
           tar xf el7-runtime.tar && rm el7-runtime.tar
           bash cluster/native-runtime.sh
           sha256sum --quiet -c manifests/runtime-SHA256SUMS
-      - name: Register three CentOS 7 agents and prepare local YUM and PostgreSQL
+      - name: Register the CentOS 7 agents and prepare local YUM and PostgreSQL
         run: |
           bash cluster/check-management-installer.sh
           bash cluster/ambari-lab/run.sh --prepare-only
@@ -40,13 +45,15 @@ jobs:
           /tmp/web-driver/bin/python cluster/web-lab/browser.py
       - name: Verify installed services and Requests
         run: python3 cluster/web-lab/verify.py
+      - name: Restore an HDFS file and the Hive catalog from independent copies
+        run: bash cluster/web-lab/recovery.sh
       - name: Capture Ambari request and task statuses
         if: ${{ always() && hashFiles('management-evidence/hosts.json') != '' }}
         run: python3 cluster/web-lab/diagnostics.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: ${{ always() }}
         with:
-          name: web-installer-${{ github.run_attempt }}
+          name: web-installer-${{ matrix.nodes }}-${{ github.run_attempt }}
           path: web-evidence/
           if-no-files-found: ignore
           retention-days: 7

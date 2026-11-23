@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright
 
 out = Path("web-evidence")
 out.mkdir(exist_ok=True)
-hosts = [f"bd{n:02d}.lab.test" for n in range(1, 4)]
+hosts = [f"bd{n:02d}.lab.test" for n in range(1, int(os.environ["AGENT_COUNT"]) + 1)]
 base = "http://" + os.environ["AMBARI_IP"] + ":8080"
 repo = "http://repo.lab.test:8081/app/"
 password = subprocess.check_output(["docker", "exec", hosts[0], "cat", "/root/hive.pass"], text=True).strip()

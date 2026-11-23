@@ -10,6 +10,12 @@ trap 'rm -rf -- "$work"' EXIT
 mkdir -p provision-evidence
 mapfile -t hosts < <(awk -F, 'NR>1 {print $2}' "$lab/hosts.csv")
 [[ ${#hosts[@]} == 3 ]]
+if [[ ${1:-} == --prepare-only ]]; then
+  for ((i=4; i<=${AGENT_COUNT:-3}; i++)); do
+    printf -v host 'bd%02d.lab.test' "$i"
+    hosts+=("$host")
+  done
+fi
 docker run -d --name lab-repo --hostname repo.lab.test --network mgmt-net --network-alias repo.lab.test \
   -v "$PWD/yum-staging:/www/app:ro" -v "$PWD/runtime-repo:/www/os:ro" -w /www \
   el7-ambari:installer python3 -m http.server 8081
