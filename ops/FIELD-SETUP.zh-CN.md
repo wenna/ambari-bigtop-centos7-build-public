@@ -29,11 +29,17 @@ cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS
 umask 077
 s="$HOME/bigtop-deploy"
 mkdir -p "$s"
+(
+set -euC
+for name in site.env access.env site.json hosts.csv web-install.json; do
+  test ! -e "$s/$name" || { echo "现场文件已存在，请直接编辑 $s/$name"; exit 1; }
+done
 cp ops/site.env.example "$s/site.env"
 cp ops/access.env.example "$s/access.env"
 cp production/site.example.json "$s/site.json"
 python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal \
   --web-out "$s/web-install.json" > "$s/hosts.csv"
+)
 ```
 
 | 文件 | 现场需要填写的值 |
@@ -47,6 +53,12 @@ python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal \
 | `web-install.json` 页面参数 | 集群名、应用和系统依赖仓库 URL、Hive 库名、首次安装的主角色 slot、客户端 slot、元数据目录、NodeManager 日志目录及现场队列。仓库地址指向分别包含 `repodata/repomd.xml` 的根目录。使用自定义队列时须另在 YARN 调度器里配置。 |
 
 管理库口令文件和 API netrc 应由 root 所有，权限为 0400 或 0600。管理库口令为单行，至少含一个非十六进制字符。env 文件是 Bash 输入，仅由受信任管理员编辑。私钥留在控制机；选用现有密钥时，确保 .pub 与私钥匹配。首次管理员应审阅现场配置和生成的动作后再授权。
+
+在控制机先执行下面的只读检查。对照机器台账确认 Target Hosts 的数量、域名、机架、角色和数据库。出现未知 slot、Hive 库名与 JDBC 地址不一致等错误时，先修改配置再执行账号引导。
+
+```bash
+python3 ops/web-install-values.py --inventory "$s/hosts.csv" --site "$s/site.json" --web "$s/web-install.json"
+```
 
 ## 3. 建账号、分发公钥并授权
 

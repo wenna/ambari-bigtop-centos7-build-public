@@ -14,6 +14,8 @@
 | 运维 / 交付版本 | 发布标签、套件摘要、KIT_ROOT、应用/依赖仓库 URL | 分卷及包内校验均成功；所有节点的交付目录一致并受保护。对照 WEB-INSTALL 在 redhat7 行填应用仓库；各主机另启用系统依赖仓库。 |
 | 运维 / 身份和上线入口 | 初始管理员、安装账号、管理网 URL、服务身份、API netrc | 脚本回报全部 Agent HEALTHY 后，用浏览器打开 `http://实际Ambari主机:8080` 或已配置的 HTTPS 管理入口。全新默认初始化下为 Ambari 应用账号 `admin`、初始口令 `admin`；首次在隔离管理网登录后立即轮换并更新 netrc。它与 Linux 安装账号分别维护。 |
 
+**SELinux 现场决策应在安装前完成。** 在管理节点记录 `getenforce` 的实际输出。Ambari 3.0 的上游 setup 检查到 Enforcing 时会尝试将运行模式临时切到 Permissive。要求全程 Enforcing 的站点应先在相同策略镜像中完成适配验证，再执行管理面安装。已按现场策略完成安装时，复核运行模式、持久配置和 AVC，再签收。[Apache Ambari 3.0 安装实现](https://github.com/apache/ambari/blob/release-3.0.0/ambari-server/src/main/python/ambari_server/serverSetup.py)
+
 ## 安装结束后启用和验收 HA
 
 1. 浏览器向导完成后，先核对所有目标主机上的安装和服务检查。在维护窗口记录当前配置版本，备份 Ambari、Hive 数据库及 HDFS namespace 元数据。记录备份位置和恢复负责人。
@@ -23,6 +25,10 @@
 5. 现场另测整机故障、机架断联和管理数据库主备切换。先确认剩余多数派和磁盘副本、执行窗口及回退负责人。容器共享宿主机，单进程切换仅覆盖其中一部分。
 
 ## 容灾签收
+
+上线前逐台验证重启后的数据盘和交付目录挂载、主机名、时钟、Agent 心跳和服务状态；先做一台备用或 Worker，恢复正常后再继续下一台。记录 Ambari Server、Agent 的开机启动策略和实际重启结果。保留独立访问数据库和备份的管理入口。
+
+本次免费环境的浏览器复装在独立的 3 台和 4 台容器上分别核对了 44 和 54 个组件实例；两套环境都从 HDFS 文件副本和 Hive 库备份恢复到新目标。另一次三节点演练以 Ambari Blueprint 创建 HA 拓扑，分别验证 NameNode、ResourceManager 切换和业务作业。页面安装后在现场启用 HA、整机重启、异地恢复仍需按本表单独签收。[两种规模的页面复装与恢复](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/45108523093) · [HA 切换和作业](https://github.com/wenna/ambari-bigtop-centos7-build-public/actions/runs/45108522442)
 
 填写 **备份位置、保留期、最近恢复点、目标/实测 RPO 和 RTO、恢复负责人**。将 HDFS 数据及权限、NameNode 元数据、Hive 和 Ambari PostgreSQL、配置版本、证书和所需密钥分别备份到独立故障域。数据库与仓库数据需对应同一业务恢复点。
 
