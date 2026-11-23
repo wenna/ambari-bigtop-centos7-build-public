@@ -64,6 +64,7 @@ EOF
   if [[ -c /dev/kvm ]]; then sudo setfacl -m "u:$(id -un):rw" /dev/kvm; accel=kvm; fi
   mem=1536; [[ $i != 1 ]] || mem=6144
   qemu-system-x86_64 -accel "$accel" -m "$mem" -smp 2 -display none -daemonize -serial "file:$s/serial$i" \
+    -object rng-random,id=rng0,filename=/dev/urandom -device virtio-rng-pci,rng=rng0 \
     -drive "file=disk$i,if=virtio,format=qcow2" -drive "file=seed$i,media=cdrom,readonly=on,format=raw" \
     -drive file=kit.iso,media=cdrom,readonly=on,format=raw -nic "tap,ifname=bttap$i,script=no,downscript=no,model=virtio-net-pci,mac=52:54:00:00:00:0$i"
 done
@@ -103,14 +104,28 @@ EOF
 printf 'BOOTSTRAP_USER=siteadmin\nBOOTSTRAP_IDENTITY_FILE=%q\nGENERATE_DEPLOY_KEY=1\n' "$s/admin" > "$s/access.env"
 bash ops/bootstrap-access.sh "$s/site.env" "$s/access.env" plan
 bash ops/bootstrap-access.sh "$s/site.env" "$s/access.env" apply
+ssh "${opts[@]}" siteadmin@bd001.field.test 'sudo -n /bin/bash -s' <<'SAMPLE' > "$s/start-sample" 2>&1 &
+for step in {1..600}; do
+  pid=$(pgrep -f '^/opt/jdk17/bin/java .*org.apache.ambari.server.controller.AmbariServer' | head -1)
+  if [[ -n $pid ]]; then
+    sleep 30
+    cat /proc/sys/kernel/random/entropy_avail
+    /opt/jdk17/bin/jcmd "$pid" Thread.print | sed -n '/^"main"/,/^$/p'
+    break
+  fi
+  sleep 2
+done
+SAMPLE
 if ! bash ops/deploy-cluster.sh "$s/site.env" ambari; then
+  cat "$s/start-sample"
   for host in bd001.field.test bd002.field.test bd003.field.test; do
     ssh "${opts[@]}" "siteadmin@$host" 'sudo -n /bin/bash -s' <<'DIAGNOSTICS' || true
 hostname -f
 free -m
 ss -ltn
 systemctl --failed --no-pager
-for log in /var/log/ambari-server/ambari-server.{log,out} /var/log/ambari-agent/ambari-agent.log; do
+ps -C java -o pid,stat,%cpu,rss
+for log in /var/log/ambari-server/ambari-server.{log,out} /var/log/ambari-server/ambari-server-check-database.log /var/log/ambari-agent/ambari-agent.log; do
   test -f "$log" && tail -75 "$log" | grep -Eiv 'password|secret|token'
 done
 journalctl -k --no-pager | grep -Ei 'out of memory|killed process|avc:.*denied' | tail -15
