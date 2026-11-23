@@ -21,7 +21,8 @@ sudo dnsmasq --interface=btlab --bind-interfaces --except-interface=lo --no-reso
   --dhcp-host=52:54:00:00:00:01,192.168.199.11 --dhcp-host=52:54:00:00:00:02,192.168.199.12 --dhcp-host=52:54:00:00:00:03,192.168.199.13
 sudo systemctl stop chrony
 printf 'bindaddress 192.168.199.1\nlocal stratum 8\nallow 192.168.199.0/24\n' > ntp.conf
-sudo chronyd -x -f "$PWD/ntp.conf"
+sudo install -m 0644 ntp.conf /etc/chrony/chrony.conf
+sudo chronyd -x -f /etc/chrony/chrony.conf
 docker load -i "$workspace/kit/runtimes/postgres15-image.tar.gz"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=pg.field.test' -addext 'subjectAltName=DNS:pg.field.test' -keyout pg.key -out pg.crt 2>/dev/null
 password="PG!$(openssl rand -hex 16)"
