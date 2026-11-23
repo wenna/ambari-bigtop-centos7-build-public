@@ -32,7 +32,7 @@ jobs:
           cp -a manifests ops production kit/
           cp cluster/provision-node.sh kit/cluster/
           cp docs/runtime-baseline.md kit/DEPENDENCIES.zh-CN.md
-          cp ops/AMBARI.zh-CN.md kit/INSTALL.zh-CN.md
+          sed -e 's@](FIELD-SETUP.zh-CN.md)@](ops/FIELD-SETUP.zh-CN.md)@g' -e 's@](WEB-INSTALL.zh-CN.md)@](ops/WEB-INSTALL.zh-CN.md)@g' ops/AMBARI.zh-CN.md > kit/INSTALL.zh-CN.md
           git archive "$GITHUB_SHA" -o kit/build-source.tar.gz
           (cd kit && sha256sum --quiet -c manifests/runtime-SHA256SUMS && find . -type f ! -path ./SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
           (cd kit && sha256sum SHA256SUMS) > kit-manifest.sha256

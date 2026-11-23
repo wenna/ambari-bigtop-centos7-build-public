@@ -62,7 +62,7 @@ EOF
   cloud-localds "seed$i" userdata metadata
   accel=tcg
   if [[ -c /dev/kvm ]]; then sudo setfacl -m "u:$(id -un):rw" /dev/kvm; accel=kvm; fi
-  mem=1536; [[ $i != 1 ]] || mem=4500
+  mem=1536; [[ $i != 1 ]] || mem=6144
   qemu-system-x86_64 -accel "$accel" -m "$mem" -smp 2 -display none -daemonize -serial "file:$s/serial$i" \
     -drive "file=disk$i,if=virtio,format=qcow2" -drive "file=seed$i,media=cdrom,readonly=on,format=raw" \
     -drive file=kit.iso,media=cdrom,readonly=on,format=raw -nic "tap,ifname=bttap$i,script=no,downscript=no,model=virtio-net-pci,mac=52:54:00:00:00:0$i"
@@ -103,4 +103,18 @@ EOF
 printf 'BOOTSTRAP_USER=siteadmin\nBOOTSTRAP_IDENTITY_FILE=%q\nGENERATE_DEPLOY_KEY=1\n' "$s/admin" > "$s/access.env"
 bash ops/bootstrap-access.sh "$s/site.env" "$s/access.env" plan
 bash ops/bootstrap-access.sh "$s/site.env" "$s/access.env" apply
-bash ops/deploy-cluster.sh "$s/site.env" ambari
+if ! bash ops/deploy-cluster.sh "$s/site.env" ambari; then
+  for host in bd001.field.test bd002.field.test bd003.field.test; do
+    ssh "${opts[@]}" "siteadmin@$host" 'sudo -n /bin/bash -s' <<'DIAGNOSTICS' || true
+hostname -f
+free -m
+ss -ltn
+systemctl --failed --no-pager
+for log in /var/log/ambari-server/ambari-server.{log,out} /var/log/ambari-agent/ambari-agent.log; do
+  test -f "$log" && tail -75 "$log" | grep -Eiv 'password|secret|token'
+done
+journalctl -k --no-pager | grep -Ei 'out of memory|killed process|avc:.*denied' | tail -15
+DIAGNOSTICS
+  done
+  exit 1
+fi

@@ -18,14 +18,7 @@ mkdir kit && cat ambari-native-el7.tar.part-* | tar xf - -C kit
 
 准备两个独立的 PostgreSQL 库及账号，管理库供 Ambari，Hive 库供 Metastore。预置数据库 CA、管理库口令文件、Ambari API 的 netrc 凭据，以及两个 NameNode 所需的双向 SSH fencing 密钥。数据库 TLS 地址的域名须与证书相符。以下命令在可信部署账户下运行，密码文件仅其所有者可读。
 
-生成 `hosts.csv` 并按真实角色调整。复制 `ops/site.env.example` 和 `production/site.example.json`，在 `site.env` 填清单路径、交付摘要、磁盘、SSH、时钟、管理库和 API 参数。在 `site.json` 配置 nameservice、Hive 数据库 JDBC、磁盘和 YARN 资源。本版原生 Stack 默认上传 Tez 到 `/bigtop/apps/3.3.0/tez/tez.tar.gz`，请将 `tez_archive` 设为该路径。
-
-```bash
-install -d -m 0700 $HOME/bigtop-deploy
-python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal > $HOME/bigtop-deploy/hosts.csv
-cp ops/site.env.example $HOME/bigtop-deploy/site.env
-cp production/site.example.json $HOME/bigtop-deploy/site.json
-```
+沿用现场操作单已经填写并审核的 `hosts.csv`、`site.env`、`site.json` 和 `web-install.json`。原生 Stack 使用 `/bigtop/apps/3.3.0/tez/tez.tar.gz`。后续步骤均在已校验的 kit 根目录执行。
 
 ## 2. 只安装 Ambari 管理面
 
