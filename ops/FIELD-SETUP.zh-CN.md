@@ -13,6 +13,16 @@
 
 ## 2. 复制模板，填写一次
 
+在空目录下载同一版的全部 `ambari-native-el7.tar.part-*`、`SHA256SUMS` 和 `kit-manifest.sha256`。执行以下命令后，从解包后的 kit 目录运行后文命令。
+
+```bash
+sha256sum -c SHA256SUMS &&
+mkdir kit && cat ambari-native-el7.tar.part-* | tar xf - -C kit &&
+cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS
+```
+
+在[上线前核对表](SITE-ACCEPTANCE.zh-CN.md)逐项确认系统、网络、数据库和故障域。`--nodes` 填本次新建的实际服务器数。3–7 台使用共节点布局；8 台及以上生成控制、SQL、Worker 分开的布局。3 台时每台各承载一份 ZooKeeper、JournalNode 和 DataNode，任一台停机后仲裁仍有两个成员，但三副本恢复需第三台可用 DataNode。虚拟机同宿主机不具备物理主机故障隔离能力。
+
 以下初始化命令在首次创建现场配置时执行。已有配置请直接编辑，以免覆盖。
 
 ```bash
@@ -22,8 +32,8 @@ mkdir -p "$s"
 cp ops/site.env.example "$s/site.env"
 cp ops/access.env.example "$s/access.env"
 cp production/site.example.json "$s/site.json"
-cp ops/web-install.example.json "$s/web-install.json"
-python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal > "$s/hosts.csv"
+python3 ops/generate-inventory.py --nodes 20 --domain prod.example.internal \
+  --web-out "$s/web-install.json" > "$s/hosts.csv"
 ```
 
 | 文件 | 现场需要填写的值 |

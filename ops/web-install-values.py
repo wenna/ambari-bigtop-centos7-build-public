@@ -59,6 +59,13 @@ def render(inventory, site, web):
                   "服务账号 — " + json.dumps(site["accounts"], ensure_ascii=False)])
     for slot, values in site.get("node_overrides", {}).items():
         lines.append("主机配置组 " + hosts[slot] + " — " + json.dumps(values, ensure_ascii=False))
+    if any("journalnode" in r["roles"].split() for r in rows):
+        lines.extend(["HA 变更窗口（首次向导完成后）",
+                      "Nameservice — " + site["nameservice"],
+                      "NameNode / ZKFC — " + role("namenode"),
+                      "JournalNode — " + role("journalnode"),
+                      "ResourceManager — " + role("resourcemanager"),
+                      "Fencing — {} port {} key {}".format(site["fence_user"], site["fence_port"], site["fence_key"])])
     return "\n".join(lines)
 
 

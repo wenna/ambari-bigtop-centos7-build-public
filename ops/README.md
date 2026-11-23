@@ -31,7 +31,7 @@ bash ops/deploy-cluster.sh $HOME/bigtop-deploy/site.env all
 
 ## 1. 主机清单和站点参数
 
-`ops/hosts.example.csv` 是可编辑的四列示例。生成器生成的 20 台示例含 3 台控制节点、2 台 SQL/管理节点和 15 台 Worker；100 台示例含 95 台 Worker。请按真实服务器及机架调整角色。生成器的示例布局至少需要 8 台，手工清单可以采用满足下列 HA 条件的其他布局。
+`ops/hosts.example.csv` 是可编辑的四列示例。生成器生成的 20 台示例含 3 台控制节点、2 台 SQL/管理节点和 15 台 Worker；100 台示例含 95 台 Worker。请按真实服务器及机架调整角色。3–7 台采用共节点布局，8 台起采用分离布局。手工清单可按下列 HA 条件调整。
 
 | CSV 字段 | 填写方式 |
 |---|---|
