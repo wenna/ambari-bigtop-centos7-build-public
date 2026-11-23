@@ -7,7 +7,7 @@ on:
         required: true
         type: string
 permissions:
-  contents: read
+  contents: write # GitHub restricts draft release assets to collaborators with push access.
 jobs:
   install:
     runs-on: ubuntu-24.04
