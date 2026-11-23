@@ -1,0 +1,32 @@
+name: Install the release using the field manual on three systemd VMs
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Native kit draft tag
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify downloaded release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KIT_TAG: ${{ inputs.release }}
+        run: |
+          [[ $KIT_TAG =~ ^el7-ambari-native-rc-[0-9]+$ ]]
+          gh release download "$KIT_TAG" -p 'ambari-native-el7.tar.part-*' -p SHA256SUMS -p kit-manifest.sha256
+          sha256sum -c SHA256SUMS
+          mkdir kit
+          cat ambari-native-el7.tar.part-* | tar xf - -C kit
+          (cd kit && sha256sum -c ../kit-manifest.sha256 && sha256sum --quiet -c SHA256SUMS)
+          rm ambari-native-el7.tar.part-*
+      - name: Install through the documented non-root entry points
+        run: bash cluster/field-vms.sh
